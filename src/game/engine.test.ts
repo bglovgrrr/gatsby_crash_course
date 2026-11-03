@@ -5,11 +5,17 @@ import {
   currentPick,
   currentRound,
   GameError,
+  guessersFor,
+  isRevealed,
+  pickTimeUp,
+  scores,
+  settingsOf,
+  voteResults,
   MAX_PLAYERS,
   playbackPosition,
   reduce,
 } from './engine'
-import type { Action, GameState, Player, Track } from './types'
+import type { Action, GameState, Player, Settings, Track } from './types'
 
 // ---------- helpers ----------
 const T0 = 1_000_000
@@ -256,5 +262,148 @@ describe('rounds, ending and leaving', () => {
     reduce(s, { type: 'next' }, 'a')
     reduce(s, { type: 'end' }, 'a')
     expect(s).toEqual(snapshot)
+  })
+})
+
+// ---------- new features: settings, pick timer, guess who, votes ----------
+
+
+/** Started game with settings applied by the host in the lobby. */
+function startedWith(settings: Partial<Settings>, n = 3) {
+  const ids = ['a', 'b', 'c', 'd', 'e'].slice(0, n)
+  let s = createGame(player('a'), 'ABCD', T0)
+  for (const id of ids.slice(1)) s = reduce(s, { type: 'join', player: player(id) }, id, T0)
+  s = reduce(s, { type: 'settings', settings }, 'a', T0)
+  return reduce(s, { type: 'start' }, 'a', T0)
+}
+const allPick = (s: GameState) =>
+  play(s, s.players.map((p): [string, Action] => [p.id, { type: 'pick', track: track(p.id) }]))
+
+describe('settings', () => {
+  it('defaults to no guessing and no timer, even for older saved games', () => {
+    expect(settingsOf(createGame(player('a'), 'ABCD'))).toEqual({ guessMode: false, pickSeconds: null })
+  })
+
+  it('only the host changes settings, and not mid-round', () => {
+    const s = createGame(player('a'), 'ABCD', T0)
+    const duo = reduce(s, { type: 'join', player: player('b') }, 'b')
+    expectError(() => reduce(duo, { type: 'settings', settings: { guessMode: true } }, 'b'), /host/)
+    expectError(() => reduce(duo, { type: 'settings', settings: { pickSeconds: 7 } }, 'a'), /timer length/)
+    expect(settingsOf(reduce(duo, { type: 'settings', settings: { guessMode: true, pickSeconds: 90 } }, 'a'))).toEqual({ guessMode: true, pickSeconds: 90 })
+    expectError(() => reduce(listening(), { type: 'settings', settings: { guessMode: true } }, 'a'), /between rounds/)
+  })
+})
+
+describe('pick timer', () => {
+  it('sets a deadline when the question is asked', () => {
+    const s = reduce(startedWith({ pickSeconds: 60 }), { type: 'ask', prompt: 'Q' }, 'a', T0)
+    expect(currentRound(s)!.pickDeadline).toBe(T0 + 60_000)
+    expect(pickTimeUp(currentRound(s)!, T0 + 59_999)).toBe(false)
+    expect(pickTimeUp(currentRound(s)!, T0 + 60_000)).toBe(true)
+  })
+
+  it('lets anyone start listening once time is up (but not before)', () => {
+    let s = reduce(startedWith({ pickSeconds: 60 }), { type: 'ask', prompt: 'Q' }, 'a', T0)
+    s = reduce(s, { type: 'pick', track: track('b') }, 'b', T0 + 1_000)
+    expectError(() => reduce(s, { type: 'startListening' }, 'c', T0 + 30_000), /asker or host/)
+    expect(reduce(s, { type: 'startListening' }, 'c', T0 + 60_000).phase).toBe('listening')
+  })
+
+  it('has no deadline when the timer is off', () => {
+    expect(currentRound(reduce(started(), { type: 'ask', prompt: 'Q' }, 'a'))!.pickDeadline).toBeUndefined()
+  })
+})
+
+describe('guess who picked it', () => {
+  const guessing = () => allPick(reduce(startedWith({ guessMode: true }), { type: 'ask', prompt: 'Q' }, 'a', T0))
+  /** [owner of the first song, then the two other players] */
+  const firstSong = (s: GameState) => {
+    const owner = currentRound(s)!.order[0]
+    return [owner, ...['a', 'b', 'c'].filter((id) => id !== owner)] as [string, string, string]
+  }
+
+  it('hides the picker until revealed', () => {
+    const s = guessing()
+    const r = currentRound(s)!
+    expect(r.guessMode).toBe(true)
+    expect(isRevealed(r, 'a')).toBe(false)
+    expect(isRevealed(currentRound(listening())!, 'a')).toBe(true) // normal mode: always shown
+  })
+
+  it('reveals automatically once everyone else has guessed, and scores correct guesses', () => {
+    let s = guessing()
+    const [owner, x, y] = firstSong(s)
+    s = reduce(s, { type: 'guess', owner, guessed: owner }, x)
+    expect(isRevealed(currentRound(s)!, owner)).toBe(false)
+    s = reduce(s, { type: 'guess', owner, guessed: x }, y)
+    expect(isRevealed(currentRound(s)!, owner)).toBe(true)
+    expect(scores(s)).toEqual({ [owner]: 0, [x]: 1, [y]: 0 })
+  })
+
+  it('does not count points before the reveal', () => {
+    const s0 = guessing()
+    const [owner, x] = firstSong(s0)
+    const s = reduce(s0, { type: 'guess', owner, guessed: owner }, x)
+    expect(scores(s)[x]).toBe(0)
+  })
+
+  it('lets you change your guess before the reveal', () => {
+    const s0 = guessing()
+    const [owner, x, y] = firstSong(s0)
+    let s = reduce(s0, { type: 'guess', owner, guessed: y }, x)
+    s = reduce(s, { type: 'guess', owner, guessed: owner }, x)
+    expect(currentRound(s)!.guesses![owner]).toEqual({ [x]: owner })
+  })
+
+  it('blocks guessing your own song, guessing yourself, future songs, and after reveal', () => {
+    const s = guessing()
+    const [owner, x, y] = firstSong(s)
+    const second = currentRound(s)!.order[1]
+    expectError(() => reduce(s, { type: 'guess', owner, guessed: x }, owner), /own song/)
+    expectError(() => reduce(s, { type: 'guess', owner, guessed: x }, x), /not your song/)
+    expectError(() => reduce(s, { type: 'guess', owner: second, guessed: owner }, second === x ? y : x), /hasn't played/)
+    const revealed = reduce(s, { type: 'reveal', owner }, y)
+    expectError(() => reduce(revealed, { type: 'guess', owner, guessed: owner }, x), /Already revealed/)
+  })
+
+  it('reveals a song when you move on, and reveals everything played when the game ends', () => {
+    const s0 = guessing()
+    const [first, second, third] = currentRound(s0)!.order
+    let s = reduce(s0, { type: 'next', from: 0 }, 'a')
+    expect(isRevealed(currentRound(s)!, first)).toBe(true)
+    expect(isRevealed(currentRound(s)!, second)).toBe(false)
+    s = reduce(s, { type: 'end' }, 'a')
+    expect(isRevealed(currentRound(s)!, second)).toBe(true)
+    expect(isRevealed(currentRound(s)!, third)).toBe(false) // never played, stays hidden
+  })
+
+  it('shuffles the play order (same result on every phone) so it gives nothing away', () => {
+    const s = guessing()
+    const order = currentRound(s)!.order
+    expect([...order].sort()).toEqual(['a', 'b', 'c'])
+    // Same inputs give the same order: every phone agrees.
+    expect(currentRound(guessing())!.order).toEqual(order)
+  })
+
+  it('counts everyone except the picker as a guesser', () => {
+    expect(guessersFor(guessing(), 'a').map((p) => p.id)).toEqual(['b', 'c'])
+  })
+})
+
+describe('song of the round', () => {
+  const between = () => play(listening(), [['a', { type: 'next' }], ['a', { type: 'next' }], ['a', { type: 'next' }]])
+
+  it('collects votes and finds the winner, including ties', () => {
+    let s = between()
+    expect(s.phase).toBe('between')
+    s = play(s, [['a', { type: 'vote', owner: 'b' }], ['b', { type: 'vote', owner: 'c' }], ['c', { type: 'vote', owner: 'b' }]])
+    expect(voteResults(currentRound(s)!)).toEqual({ counts: { b: 2, c: 1 }, winners: ['b'] })
+    s = reduce(s, { type: 'vote', owner: 'a' }, 'c') // change vote → tie
+    expect(voteResults(currentRound(s)!).winners.sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('blocks voting for yourself and voting outside the round summary', () => {
+    expectError(() => reduce(between(), { type: 'vote', owner: 'a' }, 'a'), /own song/)
+    expectError(() => reduce(listening(), { type: 'vote', owner: 'b' }, 'a'), /closed/)
   })
 })

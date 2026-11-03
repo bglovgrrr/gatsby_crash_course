@@ -1,8 +1,8 @@
 import { sample, shuffle, uid } from '@/lib/utils'
 import { searchTracks } from '@/music/search'
 import { DEMO_CATALOG } from '@/music/demo-catalog'
-import type { GameClient } from './client'
-import { askerOf, createGame, currentRound, reduce } from './engine'
+import { REACTIONS, type GameClient, type Reaction } from './client'
+import { askerOf, createGame, currentRound, isRevealed, reduce } from './engine'
 import { ALL_PROMPTS } from './prompts'
 import type { Action, GameState, Player, Track } from './types'
 import { PLAYER_COLORS } from './colors'
@@ -25,6 +25,7 @@ export class LocalGameClient implements GameClient {
   private state: GameState
   private listeners = new Set<() => void>()
   private timers = new Map<string, ReturnType<typeof setTimeout>>()
+  private reactionListeners = new Set<(r: Reaction) => void>()
   private disposed = false
 
   constructor(myName: string, botCount = 3) {
@@ -50,11 +51,24 @@ export class LocalGameClient implements GameClient {
 
   dispatch = (action: Action) => this.apply(action, this.meId)
 
+  react = (emoji: string) => this.emitReaction(emoji, this.meId)
+
+  onReaction = (listener: (r: Reaction) => void) => {
+    this.reactionListeners.add(listener)
+    return () => this.reactionListeners.delete(listener)
+  }
+
+  private emitReaction(emoji: string, playerId: string) {
+    const r: Reaction = { id: uid('rx_'), emoji, playerId }
+    this.reactionListeners.forEach((l) => l(r))
+  }
+
   dispose() {
     this.disposed = true
     this.timers.forEach(clearTimeout)
     this.timers.clear()
     this.listeners.clear()
+    this.reactionListeners.clear()
   }
 
   private apply(action: Action, actorId: string) {
@@ -100,6 +114,43 @@ export class LocalGameClient implements GameClient {
           const notes = BOTS.find((b) => b.name === bot.name)?.notes ?? ['']
           this.apply({ type: 'pick', track, note: sample(notes) }, bot.id)
         })
+      }
+    }
+
+    const bots = s.players.filter((p) => p.isBot)
+
+    if (s.phase === 'listening' && round) {
+      const owner = round.order[round.current]
+      // Guess who picked it
+      if (round.guessMode && owner && !isRevealed(round, owner)) {
+        for (const bot of bots) {
+          if (bot.id === owner || round.guesses?.[owner]?.[bot.id]) continue
+          const options = round.order.filter((id) => id !== bot.id)
+          this.later(`guess-${round.id}-${owner}-${bot.id}`, 1500 + Math.random() * 4000, () =>
+            this.apply({ type: 'guess', owner, guessed: sample(options) }, bot.id),
+          )
+        }
+      }
+      // A few reactions while the music plays
+      if (s.playback.isPlaying) {
+        for (const bot of bots) {
+          if (Math.random() < 0.4) continue
+          this.later(`react-${round.id}-${round.current}-${bot.id}`, 2000 + Math.random() * 7000, () => {
+            if (this.state.playback.isPlaying) this.emitReaction(sample(REACTIONS), bot.id)
+          })
+        }
+      }
+    }
+
+    // Song of the round
+    if (s.phase === 'between' && round) {
+      for (const bot of bots) {
+        if (round.votes?.[bot.id]) continue
+        const options = round.order.filter((id) => id !== bot.id)
+        if (!options.length) continue
+        this.later(`vote-${round.id}-${bot.id}`, 1500 + Math.random() * 3500, () =>
+          this.apply({ type: 'vote', owner: sample(options) }, bot.id),
+        )
       }
     }
   }

@@ -12,6 +12,7 @@ const fake = vi.hoisted(() => {
     row: null as null | { id: string; code: string; state: GameState; version: number },
     currentUser: '',
     listeners: [] as ((payload: { new: unknown }) => void)[],
+    broadcasts: [] as { ch: object; cb: (m: { payload: unknown }) => void }[],
     updates: 0,
     conflicts: 0,
   }
@@ -79,8 +80,18 @@ const fake = vi.hoisted(() => {
 
     channel: () => {
       const ch = {
-        on: (_e: string, _f: unknown, cb: (p: { new: unknown }) => void) => (db.listeners.push(cb), ch),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        on: (type: string, _f: unknown, cb: (p: any) => void) => {
+          if (type === 'broadcast') db.broadcasts.push({ ch, cb })
+          else db.listeners.push(cb)
+          return ch
+        },
         subscribe: (cb: (s: string) => void) => (setTimeout(() => cb('SUBSCRIBED'), 1), ch),
+        // Like Supabase's default: a broadcast reaches everyone except the sender.
+        send: async (m: { payload: unknown }) => {
+          for (const b of db.broadcasts) if (b.ch !== ch) setTimeout(() => b.cb({ payload: m.payload }), 1)
+          return 'ok'
+        },
       }
       return ch
     },
@@ -113,7 +124,7 @@ async function as<T>(uid: string, fn: () => Promise<T>) {
 
 beforeEach(() => {
   ;(globalThis as { document?: unknown }).document = { addEventListener() {}, removeEventListener() {}, visibilityState: 'visible' }
-  Object.assign(fake.db, { row: null, listeners: [], updates: 0, conflicts: 0 })
+  Object.assign(fake.db, { row: null, listeners: [], broadcasts: [], updates: 0, conflicts: 0 })
 })
 afterEach(() => {
   delete (globalThis as { document?: unknown }).document
@@ -205,6 +216,22 @@ describe('online game sync', () => {
     expect(fake.db.row!.state.phase).toBe('lobby') // not saved yet
     await settle()
     expect(fake.db.row!.state.phase).toBe('asking')
+  })
+
+  it('a reaction shows on every phone (once), without touching the database', async () => {
+    const host = await as('u-host', () => OnlineGameClient.create('Brian'))
+    const friend = await as('u-friend', () => OnlineGameClient.join('TEST', 'Maya'))
+    await settle()
+    const seenByHost: string[] = []
+    const seenByFriend: string[] = []
+    host.onReaction((r) => seenByHost.push(r.emoji))
+    friend.onReaction((r) => seenByFriend.push(r.emoji))
+    const updatesBefore = fake.db.updates
+    friend.react('🔥')
+    await settle()
+    expect(seenByHost).toEqual(['🔥'])
+    expect(seenByFriend).toEqual(['🔥'])
+    expect(fake.db.updates).toBe(updatesBefore)
   })
 
   it('an invalid tap is rejected locally and never sent', async () => {

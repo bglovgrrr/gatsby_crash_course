@@ -41,6 +41,23 @@ export type Round = {
   /** Index into `order` of the song that is up now. */
   current: number
   startedAt: number
+  /** When picking closes automatically (pick timer). */
+  pickDeadline?: number
+  /** "Guess who picked it" was on for this round. */
+  guessMode?: boolean
+  /** guesses[songOwnerId][guesserId] = the player they guessed. */
+  guesses?: Record<string, Record<string, string>>
+  /** Owners whose song has been revealed (guess mode). */
+  revealed?: string[]
+  /** Song of the round: votes[voterId] = song owner they voted for. */
+  votes?: Record<string, string>
+}
+
+export type Settings = {
+  /** Everyone guesses who picked each song before it's revealed. */
+  guessMode: boolean
+  /** Seconds to pick a song, or null for no timer. */
+  pickSeconds: number | null
 }
 
 export type Phase = 'lobby' | 'asking' | 'picking' | 'listening' | 'between' | 'recap'
@@ -63,6 +80,8 @@ export type GameState = {
   turn: number
   playback: Playback
   createdAt: number
+  /** Missing on older games; see settingsOf(). */
+  settings?: Settings
 }
 
 export type Action =
@@ -86,3 +105,9 @@ export type Action =
   | { type: 'trackEnded' }
   | { type: 'nextRound' }
   | { type: 'end' }
+  | { type: 'settings'; settings: Partial<Settings> }
+  /** Guess who picked `owner`'s song. */
+  | { type: 'guess'; owner: string; guessed: string }
+  | { type: 'reveal'; owner: string }
+  /** Vote for the song of the round. */
+  | { type: 'vote'; owner: string }

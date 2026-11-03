@@ -1,13 +1,14 @@
-import { ArrowLeft, Headphones, Loader2, Lock, Pause, Play, Search, WifiOff } from 'lucide-react'
+import { ArrowLeft, Headphones, Loader2, Lock, Pause, Play, Search, Timer, WifiOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { AlbumArt, PlayerAvatar, PromptCard, TrackRow } from '@/components/game-ui'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { askerOf, currentRound, MAX_NOTE_LENGTH, playerById } from '@/game/engine'
+import { askerOf, currentRound, MAX_NOTE_LENGTH, pickTimeUp, playerById } from '@/game/engine'
 import type { Track } from '@/game/types'
-import { useGame } from '@/hooks/use-game'
+import { useGame, useNow } from '@/hooks/use-game'
+import { cn, formatTime } from '@/lib/utils'
 import { searchTracks } from '@/music/search'
 
 function useTrackSearch(query: string) {
@@ -41,6 +42,49 @@ function useTrackSearch(query: string) {
 }
 
 /** Quick listen on your own phone before you lock it in. */
+/** Countdown for the pick timer; starts listening automatically when time's up. */
+function PickTimer() {
+  const { state, client } = useGame()
+  const round = currentRound(state)!
+  const deadline = round.pickDeadline
+  const now = useNow(!!deadline, 250)
+  const started = useRef<string | null>(null)
+  const timeUp = !!deadline && pickTimeUp(round, now)
+
+  useEffect(() => {
+    if (!timeUp || !round.picks.length || started.current === round.id) return
+    started.current = round.id
+    try {
+      client.dispatch({ type: 'startListening' })
+    } catch {
+      /* someone else's phone already started it */
+    }
+  }, [timeUp, round.picks.length, round.id, client])
+
+  if (!deadline) return null
+  const total = deadline - round.startedAt
+  const left = Math.max(0, deadline - now)
+  const pct = total > 0 ? (left / total) * 100 : 0
+  const urgent = left <= 10_000
+  return (
+    <div className="grid gap-2" role="timer" aria-live="off">
+      <div className="flex items-center justify-between text-sm">
+        <span className="flex items-center gap-1.5 font-medium">
+          <Timer className="size-4" /> {timeUp ? "Time's up" : 'Time to pick'}
+        </span>
+        <span className={cn('font-display text-xl tabular-nums', urgent && 'text-destructive')}>{formatTime(left + 999)}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn('h-full rounded-full transition-[width] duration-300', urgent ? 'bg-destructive' : 'bg-[linear-gradient(90deg,var(--text-grad-1),var(--text-grad-2))]')}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {timeUp && !round.picks.length && <p className="text-xs text-muted-foreground">Listening starts as soon as someone picks.</p>}
+    </div>
+  )
+}
+
 function PreviewButton({ track }: { track: Track }) {
   const ref = useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = useState(false)
@@ -90,6 +134,11 @@ export function PickingScreen() {
     <div className="grid gap-5 py-4 md:grid-cols-[1fr_280px] md:items-start md:gap-8">
       <div className="grid min-w-0 gap-5">
         <PromptCard prompt={round.prompt} asker={asker} />
+        {round.pickDeadline && (
+          <div className="md:hidden">
+            <PickTimer />
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           {selected ? (
@@ -176,6 +225,11 @@ export function PickingScreen() {
       </div>
 
       <aside className="grid gap-3 md:sticky md:top-20">
+        {round.pickDeadline && (
+          <Card className="hidden p-4 md:block">
+            <PickTimer />
+          </Card>
+        )}
         <Card className="p-4">
           <h3 className="mb-3 text-lg font-medium font-soft">
             {round.picks.length}/{state.players.length} picked

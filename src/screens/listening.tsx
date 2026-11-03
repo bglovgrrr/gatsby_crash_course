@@ -1,12 +1,90 @@
-import { ExternalLink, MessageCircle, Pause, Play, SkipBack, SkipForward, Speaker } from 'lucide-react'
+import { Check, Eye, ExternalLink, MessageCircle, Pause, Play, SkipBack, SkipForward, Speaker } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { AlbumArt, Equalizer, PlayerAvatar, PromptCard } from '@/components/game-ui'
+import { ReactionBar } from '@/components/reactions'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { currentPick, currentRound, playbackPosition, playerById } from '@/game/engine'
+import { currentPick, currentRound, guessersFor, isRevealed, playbackPosition, playerById } from '@/game/engine'
 import { useGame, useNow } from '@/hooks/use-game'
 import { spotifySearchUrl } from '@/music/search'
 import { cn, formatTime } from '@/lib/utils'
+
+/** Guess who picked the song that's playing (guess mode, before the reveal). */
+function GuessPanel() {
+  const { state, dispatch, meId } = useGame()
+  const round = currentRound(state)!
+  const owner = round.order[round.current]
+  const guesses = round.guesses?.[owner] ?? {}
+  const guessers = guessersFor(state, owner)
+  const done = guessers.filter((p) => guesses[p.id]).length
+  const mine = guesses[meId]
+  const options = round.order.filter((id) => id !== meId).map((id) => playerById(state, id)!).filter(Boolean)
+
+  return (
+    <Card className="mx-auto grid w-full max-w-md gap-4 p-4">
+      {owner === meId ? (
+        <div className="text-center">
+          <p className="font-display text-xl font-medium">🤫 This one's yours</p>
+          <p className="text-sm text-muted-foreground">Keep a straight face while they guess.</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-center font-display text-xl font-medium">Who picked this?</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {options.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => dispatch({ type: 'guess', owner, guessed: p.id })}
+                aria-pressed={mine === p.id}
+                className={cn(
+                  'grid cursor-pointer justify-items-center gap-1 rounded-2xl p-2 transition active:scale-95',
+                  mine === p.id ? 'bg-secondary' : 'hover:bg-muted',
+                )}
+              >
+                <PlayerAvatar player={p} size="lg" ring={mine === p.id} />
+                <span className="max-w-16 truncate text-xs font-medium">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="flex items-center justify-between gap-3 border-t pt-3">
+        <span className="text-sm text-muted-foreground">
+          {done}/{guessers.length} guesses in
+        </span>
+        <Button variant="secondary" size="sm" onClick={() => dispatch({ type: 'reveal', owner })}>
+          <Eye /> Reveal
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+/** After the reveal: who got it right. */
+function GuessResult() {
+  const { state, meId } = useGame()
+  const round = currentRound(state)!
+  const owner = round.order[round.current]
+  const guesses = round.guesses?.[owner] ?? {}
+  const right = Object.entries(guesses).filter(([, g]) => g === owner).map(([id]) => playerById(state, id)).filter(Boolean)
+  if (!Object.keys(guesses).length) return null
+  return (
+    <p className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+      {right.length ? (
+        <>
+          <Check className="size-4 text-success" /> Guessed right:
+          {right.map((p) => (
+            <span key={p!.id} className="font-semibold text-foreground">
+              {p!.id === meId ? 'you' : p!.name}
+            </span>
+          ))}
+        </>
+      ) : (
+        'Nobody guessed it! 😮'
+      )}
+    </p>
+  )
+}
 
 export function ListeningScreen() {
   const { state, dispatch, meId, client } = useGame()
@@ -23,6 +101,7 @@ export function ListeningScreen() {
   const fresh = !isPlaying && pos === 0
   const isLast = round.current === round.order.length - 1
   const pct = Math.min(100, (pos / dur) * 100)
+  const revealed = isRevealed(round, pick.playerId)
 
   return (
     <div className="grid gap-6 py-4 md:grid-cols-[1fr_320px] md:gap-8">
@@ -59,16 +138,24 @@ export function ListeningScreen() {
               <p className="text-lg text-muted-foreground">{pick.track.artist}</p>
             </div>
 
-            {picker && (
-              <div className="flex items-center gap-2 rounded-full bg-secondary py-1 pr-4 pl-1 text-secondary-foreground">
+            {picker && revealed && (
+              <motion.div
+                initial={round.guessMode ? { scale: 0.8, opacity: 0 } : false}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+                className="flex items-center gap-2 rounded-full bg-secondary py-1 pr-4 pl-1 text-secondary-foreground"
+              >
                 <PlayerAvatar player={picker} size="sm" />
                 <span className="text-sm font-medium">Picked by {picker.id === meId ? 'you' : picker.name}</span>
                 <Equalizer playing={isPlaying} className="ml-1 text-accent" />
-              </div>
+              </motion.div>
             )}
-            {pick.note && <p className="max-w-sm text-balance text-muted-foreground italic">“{pick.note}”</p>}
+            {round.guessMode && revealed && <GuessResult />}
+            {pick.note && revealed && <p className="max-w-sm text-balance text-muted-foreground italic">“{pick.note}”</p>}
           </motion.div>
         </AnimatePresence>
+
+        {round.guessMode && !revealed && <GuessPanel />}
 
         {/* Progress */}
         <div className="mx-auto grid w-full max-w-md gap-1.5">
@@ -106,6 +193,8 @@ export function ListeningScreen() {
           </Button>
         </div>
 
+        <ReactionBar />
+
         {!client.isSpeaker && host && (
           <p className="-mt-1 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <Speaker className="size-3.5" /> Playing on {host.name}'s device
@@ -113,7 +202,7 @@ export function ListeningScreen() {
         )}
 
         <AnimatePresence>
-          {(ended || (!isPlaying && !fresh)) && picker && (
+          {(ended || (!isPlaying && !fresh)) && picker && revealed && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <Card className="mx-auto flex max-w-md items-start gap-3 p-4">
                 <MessageCircle className="mt-0.5 size-5 shrink-0 text-accent" />
@@ -155,27 +244,36 @@ export function ListeningScreen() {
             {round.order.map((pid, i) => {
               const p = round.picks.find((x) => x.playerId === pid)!
               const who = playerById(state, pid)
-              const revealed = i <= round.current
+              const played = i <= round.current
+              const showWho = played && isRevealed(round, pid)
               const active = i === round.current
               return (
                 <li key={pid}>
                   <button
-                    disabled={!revealed}
+                    disabled={!played}
                     onClick={() => dispatch({ type: 'jump', index: i })}
                     className={cn(
                       'flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors',
-                      revealed && 'cursor-pointer hover:bg-muted',
+                      played && 'cursor-pointer hover:bg-muted',
                       active && 'bg-secondary',
                     )}
                   >
-                    <AlbumArt track={p.track} hidden={!revealed} className="size-11 shrink-0" rounded="rounded-lg" />
+                    <AlbumArt track={p.track} hidden={!played} className="size-11 shrink-0" rounded="rounded-lg" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold">{revealed ? p.track.title : 'Mystery song'}</div>
+                      <div className="truncate text-sm font-semibold">{played ? p.track.title : 'Mystery song'}</div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {revealed ? p.track.artist : `${who?.id === meId ? 'Your' : `${who?.name}'s`} pick`}
+                        {played
+                          ? p.track.artist
+                          : round.guessMode
+                            ? 'Coming up'
+                            : `${who?.id === meId ? 'Your' : `${who?.name}'s`} pick`}
                       </div>
                     </div>
-                    {who && <PlayerAvatar player={who} size="sm" />}
+                    {who && (showWho || !round.guessMode) ? (
+                      <PlayerAvatar player={who} size="sm" />
+                    ) : (
+                      <span className="grid size-7 place-items-center rounded-full border border-dashed text-xs text-muted-foreground">?</span>
+                    )}
                   </button>
                 </li>
               )

@@ -3,11 +3,14 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { AudioEngine, unlockAudio } from '@/components/audio-engine'
+import { ReactionLayer } from '@/components/reactions'
 import { Toaster } from '@/components/ui/sonner'
 import type { GameClient } from '@/game/client'
 import { LocalGameClient } from '@/game/local-client'
 import { OnlineGameClient } from '@/game/online-client'
+import { useCues } from '@/hooks/use-cues'
 import { GameContext, useGame } from '@/hooks/use-game'
+import { unlockChime } from '@/lib/chime'
 import { onlineAvailable } from '@/lib/supabase'
 import { AskingScreen } from '@/screens/asking'
 import { BetweenScreen } from '@/screens/between'
@@ -19,7 +22,8 @@ import { PickingScreen } from '@/screens/picking'
 import { RecapScreen } from '@/screens/recap'
 
 function Game({ onExit }: { onExit: () => void }) {
-  const { state, client } = useGame()
+  const { state, client, meId } = useGame()
+  useCues(state, meId)
   const screens = {
     lobby: <LobbyScreen />,
     asking: <AskingScreen />,
@@ -31,6 +35,7 @@ function Game({ onExit }: { onExit: () => void }) {
   return (
     <GameShell onExit={onExit}>
       {client.isSpeaker && state.phase === 'listening' && <AudioEngine />}
+      <ReactionLayer />
       <AnimatePresence mode="wait">
         <motion.div
           key={`${state.phase}-${state.rounds.length}`}
@@ -62,8 +67,12 @@ export default function App() {
 
   // Let this device play sound later, even when someone else presses play.
   useEffect(() => {
-    window.addEventListener('pointerdown', unlockAudio)
-    return () => window.removeEventListener('pointerdown', unlockAudio)
+    const unlock = () => {
+      unlockAudio()
+      unlockChime()
+    }
+    window.addEventListener('pointerdown', unlock)
+    return () => window.removeEventListener('pointerdown', unlock)
   }, [])
 
   useEffect(() => {

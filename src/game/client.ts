@@ -1,5 +1,10 @@
 import type { Action, GameState } from './types'
 
+export const REACTIONS = ['❤️', '😂', '😭', '🔥', '🙌'] as const
+
+/** A quick emoji tap while a song plays. Not saved; it just floats up on every screen. */
+export type Reaction = { id: string; emoji: string; playerId: string }
+
 /**
  * How the UI talks to a game. Demo mode runs everything on this device with bots;
  * online mode (next step: Supabase) will sync the same state between phones.
@@ -12,5 +17,7 @@ export interface GameClient {
   getState(): GameState
   subscribe(listener: () => void): () => void
   dispatch(action: Action): void
+  react(emoji: string): void
+  onReaction(listener: (r: Reaction) => void): () => void
   dispose(): void
 }

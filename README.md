@@ -15,7 +15,14 @@ Side B is a relaxed music game for 2–8 friends in the same room. Someone asks 
 
 ## Features
 
-- **No accounts.** Start a game, share the 4-letter code or invite link, and friends join with just a name.
+- **No accounts.** Start a game and friends scan the QR code (or enter the 4-letter code) and join with just a name.
+- **Guess who picked it** (optional). Everyone guesses whose song is playing before the reveal. 1 point per correct guess.
+- **Pick timer** (optional). 60s, 90s, or 2 min; listening starts automatically when time's up.
+- **Reactions.** Tap ❤️ 😂 😭 🔥 🙌 while a song plays and they float up on every screen.
+- **Song of the round.** Vote for your favourite after each round; the winner gets a crown.
+- **Recap card.** A shareable image of the night's mixtape.
+- **Save to Spotify.** Turn the whole game into a playlist (needs a Spotify app; see below).
+- **Gentle chimes.** A soft sound when it's your turn to ask, when picking starts, and when 10 seconds are left.
 - **Live sync.** Every phone stays in step: questions, picks, play/pause, and the progress bar.
 - **Rejoin anytime.** Refresh or lock your phone and you land back in the same game.
 - **Question themes.** Throwback, Family, Love & heartbreak, Hype, Deep cuts, Places, and Wildcard, plus your own questions and "Surprise me".
@@ -41,7 +48,8 @@ npm run lint
 `npm test` runs the automated tests with Vitest:
 
 - `src/game/engine.test.ts` covers every game rule: joining, turns, picks, playback, rounds, and leaving.
-- `src/game/online-client.test.ts` simulates several phones against a stand-in for Supabase, including two people tapping at the same moment.
+- `src/game/online-client.test.ts` simulates several phones against a stand-in for Supabase, including two people tapping at the same moment and reactions.
+- `src/music/spotify.test.ts` checks the Spotify export against a stand-in for Spotify's API.
 
 GitHub runs lint, type check, tests, and a build on every push (`.github/workflows/ci.yml`). The result shows as ✅ or ❌ next to each commit.
 
@@ -56,6 +64,15 @@ Friends need a web address to join. Any static host works. The easiest free opti
 3. Keep the detected settings (Vite, `npm run build`, output `dist`) and deploy.
 
 Vercel deploys the repository's default branch, so merge your work there first, or pick a different production branch in the project settings.
+
+## Save to Spotify (optional)
+
+1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard). Choose **Web API**.
+2. Add your site's address as a **Redirect URI**, with the trailing slash (for example `https://your-app.vercel.app/`). For local testing add `http://127.0.0.1:5173/` and open the app at that address (Spotify doesn't accept `localhost`).
+3. Put the app's **Client ID** in `.env` as `VITE_SPOTIFY_CLIENT_ID` (it is not a secret). On Vercel, add it under **Settings → Environment Variables** too.
+4. Under **User Management**, add the Spotify account of everyone who will save playlists.
+
+Spotify restricts apps in Development Mode: the app owner needs Spotify Premium, and only listed users can sign in. Since Spotify's February 2026 changes, some developers report that playlist creation is refused for Development Mode apps. If that happens, the app explains the error and **Copy song list** still works.
 
 ## Backend (Supabase)
 
@@ -122,7 +139,8 @@ Add more shadcn components with `npx shadcn@latest add <component>`.
 - [x] Pastel design with light and dark themes
 - [x] Online rooms: codes, invite links, live sync, rejoin after refresh
 - [x] Database live on Supabase with security rules
+- [x] Guess who picked it, pick timer, reactions, song of the round, QR join, chimes
+- [x] Recap card and Save to Spotify
 - [ ] Host the app (Vercel) and play a first real game
 - [ ] Game history: browse past games and their mixtapes
-- [ ] Spotify: full-length playback and "Save as playlist"
-- [ ] Reactions while a song plays
+- [ ] Spotify: full-length playback on the host's device

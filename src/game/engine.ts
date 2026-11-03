@@ -1,10 +1,14 @@
 import { clock } from '@/lib/clock'
-import type { Action, GameState, Pick, Player, Round } from './types'
+import type { Action, GameState, Pick, Player, Round, Settings } from './types'
 
 export const MIN_PLAYERS = 2
 export const MAX_PLAYERS = 8
 export const MAX_PROMPT_LENGTH = 160
 export const MAX_NOTE_LENGTH = 140
+export const PICK_TIMER_OPTIONS = [60, 90, 120] as const
+export const DEFAULT_SETTINGS: Settings = { guessMode: false, pickSeconds: null }
+
+export const settingsOf = (s: GameState): Settings => ({ ...DEFAULT_SETTINGS, ...s.settings })
 
 export class GameError extends Error {}
 
@@ -40,6 +44,38 @@ export function currentPick(s: GameState): Pick | undefined {
   return r.picks.find((p) => p.playerId === pid)
 }
 
+/** In guess mode a song's picker stays hidden until it's revealed. */
+export const isRevealed = (r: Round, ownerId: string) => !r.guessMode || (r.revealed ?? []).includes(ownerId)
+
+/** People who can guess a song: everyone in the game except whoever picked it. */
+export const guessersFor = (s: GameState, ownerId: string) => s.players.filter((p) => p.id !== ownerId)
+
+/** Points from correct guesses across the whole game (revealed songs only). */
+export function scores(s: GameState): Record<string, number> {
+  const out: Record<string, number> = Object.fromEntries(s.players.map((p) => [p.id, 0]))
+  for (const r of s.rounds) {
+    for (const [owner, byGuesser] of Object.entries(r.guesses ?? {})) {
+      if (!isRevealed(r, owner)) continue
+      for (const [guesser, guessed] of Object.entries(byGuesser)) {
+        if (guessed === owner) out[guesser] = (out[guesser] ?? 0) + 1
+      }
+    }
+  }
+  return out
+}
+
+/** Vote counts for a round, and the winning song owner(s). */
+export function voteResults(r: Round) {
+  const counts: Record<string, number> = {}
+  for (const owner of Object.values(r.votes ?? {})) counts[owner] = (counts[owner] ?? 0) + 1
+  const top = Math.max(0, ...Object.values(counts))
+  const winners = top > 0 ? Object.keys(counts).filter((o) => counts[o] === top) : []
+  return { counts, winners }
+}
+
+/** Pick timer ran out. */
+export const pickTimeUp = (r: Round, now = clock.now()) => r.pickDeadline !== undefined && now >= r.pickDeadline
+
 export function playbackPosition(s: GameState, now = clock.now()) {
   const pb = s.playback
   const pos = pb.isPlaying ? pb.positionMs + (now - pb.updatedAt) : pb.positionMs
@@ -47,12 +83,33 @@ export function playbackPosition(s: GameState, now = clock.now()) {
   return Math.min(Math.max(0, pos), max)
 }
 
-/** Play order: start with the asker, then go around the circle. */
+/**
+ * Play order: start with the asker, then go around the circle.
+ * In guess mode the order is shuffled (otherwise the order gives the answer away).
+ * The shuffle is seeded by the round id so every phone gets the same order.
+ */
 function playOrder(s: GameState, r: Round): string[] {
   const pickedIds = new Set(r.picks.map((p) => p.playerId))
   const start = Math.max(0, s.players.findIndex((p) => p.id === r.askerId))
   const seats = [...s.players.slice(start), ...s.players.slice(0, start)]
-  return seats.map((p) => p.id).filter((id) => pickedIds.has(id))
+  const order = seats.map((p) => p.id).filter((id) => pickedIds.has(id))
+  return r.guessMode ? seededShuffle(order, r.id) : order
+}
+
+function seededShuffle<T>(items: T[], seed: string): T[] {
+  let h = 2166136261
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619)
+  const rand = () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507)
+    h = Math.imul(h ^ (h >>> 13), 3266489909)
+    return ((h ^= h >>> 16) >>> 0) / 4294967296
+  }
+  const a = [...items]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
 }
 
 function withRound(s: GameState, r: Round): GameState {
@@ -68,8 +125,15 @@ function startListening(s: GameState, now: number): GameState {
   }
 }
 
+function reveal(r: Round, owner: string): Round {
+  if (!r.guessMode || (r.revealed ?? []).includes(owner)) return r
+  return { ...r, revealed: [...(r.revealed ?? []), owner] }
+}
+
 function loadTrack(s: GameState, index: number, autoplay: boolean, now: number): GameState {
-  const r = currentRound(s)!
+  let r = currentRound(s)!
+  // Moving on from a song reveals who picked it.
+  if (index !== r.current && r.order[r.current]) r = reveal(r, r.order[r.current])
   return {
     ...withRound(s, { ...r, current: index }),
     playback: { isPlaying: autoplay, positionMs: 0, updatedAt: now },
@@ -115,6 +179,7 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
       if (!isAsker && !isHost) fail("It's not your turn to ask.")
       const prompt = a.prompt.trim().slice(0, MAX_PROMPT_LENGTH)
       if (!prompt) fail('Write a question first.')
+      const settings = settingsOf(s)
       const r: Round = {
         id: `r${s.rounds.length + 1}_${now}`,
         number: s.rounds.length + 1,
@@ -125,6 +190,10 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
         order: [],
         current: 0,
         startedAt: now,
+        pickDeadline: settings.pickSeconds ? now + settings.pickSeconds * 1000 : undefined,
+        guessMode: settings.guessMode || undefined,
+        guesses: settings.guessMode ? {} : undefined,
+        revealed: settings.guessMode ? [] : undefined,
       }
       return { ...s, phase: 'picking', rounds: [...s.rounds, r] }
     }
@@ -149,7 +218,7 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
 
     case 'startListening': {
       if (s.phase !== 'picking' || !round) fail('Nothing to listen to yet.')
-      if (!isAsker && !isHost) fail('Only the asker or host can start early.')
+      if (!isAsker && !isHost && !pickTimeUp(round!, now)) fail('Only the asker or host can start early.')
       if (!round!.picks.length) fail('Nobody has picked a song yet.')
       return startListening(s, now)
     }
@@ -182,7 +251,11 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
       if (s.phase !== 'listening' || !round) return s
       if (a.from !== undefined && a.from !== round!.current) return s
       if (round!.current < round!.order.length - 1) return loadTrack(s, round!.current + 1, true, now)
-      return { ...s, phase: 'between', playback: { isPlaying: false, positionMs: 0, updatedAt: now } }
+      return {
+        ...withRound(s, reveal(round!, round!.order[round!.current])),
+        phase: 'between',
+        playback: { isPlaying: false, positionMs: 0, updatedAt: now },
+      }
     }
 
     case 'prev': {
@@ -211,7 +284,48 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
 
     case 'end': {
       if (!isHost) fail('Only the host can end the game.')
-      return { ...s, phase: 'recap', playback: { isPlaying: false, positionMs: 0, updatedAt: now } }
+      // Reveal everything that was played, so the recap and scores are complete.
+      const rounds = s.rounds.map((r) =>
+        r.order.slice(0, s.phase === 'listening' && r === round ? r.current + 1 : r.order.length).reduce(reveal, r),
+      )
+      return { ...s, rounds, phase: 'recap', playback: { isPlaying: false, positionMs: 0, updatedAt: now } }
+    }
+
+    case 'settings': {
+      if (!isHost) fail('Only the host can change settings.')
+      if (s.phase === 'picking' || s.phase === 'listening' || s.phase === 'recap') fail('Change settings between rounds.')
+      const next = { ...settingsOf(s), ...a.settings }
+      if (next.pickSeconds !== null && !(PICK_TIMER_OPTIONS as readonly number[]).includes(next.pickSeconds)) fail('Pick a timer length from the list.')
+      return { ...s, settings: { guessMode: !!next.guessMode, pickSeconds: next.pickSeconds } }
+    }
+
+    case 'guess': {
+      if (s.phase !== 'listening' || !round?.guessMode) fail('No guessing right now.')
+      const idx = round!.order.indexOf(a.owner)
+      if (idx < 0 || idx > round!.current) fail("That song hasn't played yet.")
+      if (isRevealed(round!, a.owner)) fail('Already revealed.')
+      if (actorId === a.owner) fail("You can't guess your own song.")
+      if (a.guessed === actorId) fail("It's not your song. Guess someone else!")
+      if (!round!.order.includes(a.guessed)) fail('That player didn’t pick a song this round.')
+      const forSong = { ...(round!.guesses?.[a.owner] ?? {}), [actorId]: a.guessed }
+      let r: Round = { ...round!, guesses: { ...round!.guesses, [a.owner]: forSong } }
+      // Everyone has guessed: reveal automatically.
+      if (guessersFor(s, a.owner).every((p) => forSong[p.id])) r = reveal(r, a.owner)
+      return withRound(s, r)
+    }
+
+    case 'reveal': {
+      if (s.phase !== 'listening' || !round?.guessMode) return s
+      const idx = round!.order.indexOf(a.owner)
+      if (idx < 0 || idx > round!.current) fail("That song hasn't played yet.")
+      return withRound(s, reveal(round!, a.owner))
+    }
+
+    case 'vote': {
+      if (s.phase !== 'between' || !round) fail('Voting is closed.')
+      if (!round!.order.includes(a.owner)) fail('That song isn’t in this round.')
+      if (a.owner === actorId) fail("You can't vote for your own song.")
+      return withRound(s, { ...round!, votes: { ...round!.votes, [actorId]: a.owner } })
     }
   }
 }

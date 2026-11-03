@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { clock } from '@/lib/clock'
 import { ensureSession, friendlyError, OnlineError, supabase, syncClock } from '@/lib/supabase'
 import { safeStorage } from '@/lib/utils'
-import type { GameClient } from './client'
+import type { GameClient, Reaction } from './client'
 import { GameError, reduce } from './engine'
 import type { Action, GameState } from './types'
 
@@ -25,6 +25,7 @@ export class OnlineGameClient implements GameClient {
   private pending = 0
   private queue: Promise<void> = Promise.resolve()
   private listeners = new Set<() => void>()
+  private reactionListeners = new Set<(r: Reaction) => void>()
   private channel: RealtimeChannel | null = null
   private disposed = false
 
@@ -97,6 +98,17 @@ export class OnlineGameClient implements GameClient {
     })
   }
 
+  react = (emoji: string) => {
+    const r: Reaction = { id: `${this.meId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, emoji, playerId: this.meId }
+    this.reactionListeners.forEach((l) => l(r)) // show my own instantly
+    void this.channel?.send({ type: 'broadcast', event: 'reaction', payload: r })
+  }
+
+  onReaction = (listener: (r: Reaction) => void) => {
+    this.reactionListeners.add(listener)
+    return () => this.reactionListeners.delete(listener)
+  }
+
   dispose() {
     if (this.disposed) return
     this.disposed = true
@@ -106,6 +118,7 @@ export class OnlineGameClient implements GameClient {
       if (channel) void supabase!.removeChannel(channel)
     })
     this.listeners.clear()
+    this.reactionListeners.clear()
   }
 
   // ---- internals ----
@@ -165,6 +178,11 @@ export class OnlineGameClient implements GameClient {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${this.roomId}` }, (payload) =>
         this.accept(payload.new as RoomRow),
       )
+      // Reactions travel over a live broadcast only; they are never saved.
+      .on('broadcast', { event: 'reaction' }, ({ payload }) => {
+        const r = payload as Reaction
+        if (r && typeof r.emoji === 'string' && r.emoji.length <= 8) this.reactionListeners.forEach((l) => l(r))
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') void this.refresh() // catch anything missed while connecting
       })
