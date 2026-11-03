@@ -1,8 +1,8 @@
-import { ArrowRight, Crown, Flag, Settings2 } from 'lucide-react'
+import { ArrowRight, Flag, Settings2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useState } from 'react'
 import { GameSettings } from '@/components/game-settings'
-import { AlbumArt, PlayerAvatar, PromptCard } from '@/components/game-ui'
+import { AlbumArt, CrownedName, PlayerAvatar, PromptCard } from '@/components/game-ui'
 import { Scoreboard } from '@/components/scoreboard'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -56,22 +56,12 @@ export function BetweenScreen() {
                         myVote === pid && 'bg-secondary',
                       )}
                     >
-                      <div className="relative shrink-0">
-                        <AlbumArt track={p.track} className="size-12" rounded="rounded-lg" />
-                        {isWinner && (
-                          <motion.span
-                            initial={{ scale: 0, rotate: -30 }}
-                            animate={{ scale: 1, rotate: -12 }}
-                            className="absolute -top-2.5 -left-2 grid size-6 place-items-center rounded-full bg-[#fbe39a] text-ink shadow"
-                          >
-                            <Crown className="size-3.5" />
-                          </motion.span>
-                        )}
-                      </div>
+                      <AlbumArt track={p.track} className="size-12 shrink-0" rounded="rounded-lg" />
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold">{p.track.title}</div>
-                        <div className="truncate text-sm text-muted-foreground">
-                          {p.track.artist} · {mine ? 'you' : who?.name}
+                        <div className="flex min-w-0 items-baseline gap-1 pt-1 text-sm text-muted-foreground">
+                          <span className="truncate">{p.track.artist} ·</span>
+                          <CrownedName name={mine ? 'you' : (who?.name ?? '')} crowned={isWinner} className={cn('shrink-0', isWinner && 'font-semibold text-foreground')} />
                         </div>
                       </div>
                       {!!counts[pid] && (

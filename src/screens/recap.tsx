@@ -1,8 +1,8 @@
-import { Copy, Crown, ExternalLink, Home, ImageIcon, ListMusic, Loader2, Share, X } from 'lucide-react'
+import { Copy, ExternalLink, Home, ImageIcon, ListMusic, Loader2, Share, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { PlayerAvatar, TrackRow } from '@/components/game-ui'
+import { CrownedName, PlayerAvatar, TrackRow } from '@/components/game-ui'
 import { Scoreboard } from '@/components/scoreboard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { playerById, voteResults } from '@/game/engine'
 import { drawRecapCard } from '@/lib/recap-card'
 import { saveToSpotify, spotifyAvailable, type ExportResult } from '@/music/spotify'
 import { useGame } from '@/hooks/use-game'
+import { cn } from '@/lib/utils'
 
 /** Shows the recap image with Share (where supported) or "press and hold to save". */
 function RecapCardDialog({ onClose }: { onClose: () => void }) {
@@ -195,10 +196,7 @@ export function RecapScreen({ onExit }: { onExit: () => void }) {
                 key={pid}
                 track={p.track}
                 right={
-                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    {crowned && <Crown className="size-4 text-[#d9a400]" aria-label="Song of the round" />}
-                    {who?.name}
-                  </span>
+                  <CrownedName name={who?.name ?? ''} crowned={crowned} className={cn('pt-1 text-sm', crowned ? 'font-semibold text-foreground' : 'text-muted-foreground')} />
                 }
               />
             )

@@ -1,4 +1,5 @@
-import { Check, Disc3 } from 'lucide-react'
+import { Check, Crown, Disc3 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useState } from 'react'
 import type { Player, Track } from '@/game/types'
 import { cn } from '@/lib/utils'
@@ -173,5 +174,34 @@ export function TrackRow({
       </div>
       {right}
     </Comp>
+  )
+}
+
+/**
+ * A player's name with a little gold crown perched on the first letter, tilted.
+ * Used for the song-of-the-round winner. Give the parent a bit of room above
+ * (it pokes out by ~0.6em) and don't put it inside `overflow: hidden`.
+ */
+export function CrownedName({ name, crowned, className }: { name: string; crowned?: boolean; className?: string }) {
+  if (!crowned || !name) return <span className={className}>{name}</span>
+  const [first, ...rest] = Array.from(name)
+  return (
+    <span className={cn('inline-block whitespace-nowrap', className)} title="Song of the round">
+      <span className="relative inline-block">
+        <motion.span
+          aria-hidden
+          initial={{ scale: 0, rotate: -40, y: 4 }}
+          animate={{ scale: 1, rotate: -18, y: 0 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 14 }}
+          className="pointer-events-none absolute bottom-[78%] left-[30%] block origin-bottom -translate-x-1/2"
+          style={{ width: '0.95em', height: '0.95em' }}
+        >
+          <Crown className="size-full drop-shadow-[0_1px_1px_rgb(0_0_0/0.25)]" fill="#f5c84c" stroke="#a4730d" strokeWidth={1.75} />
+        </motion.span>
+        {first}
+      </span>
+      {rest.join('')}
+      <span className="sr-only">, song of the round</span>
+    </span>
   )
 }

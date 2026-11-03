@@ -136,17 +136,22 @@ export async function drawRecapCard(s: GameState): Promise<Blob> {
       const initial = (who?.name ?? '?').slice(0, 1).toUpperCase()
       c.fillText(initial, PAD + dot - c.measureText(initial).width / 2, y - 5 * k)
 
-      const crown = winners.includes(pid) ? '  👑' : ''
-      c.font = sans(26 * k)
+      const crowned = winners.includes(pid)
+      const nameSize = 26 * k
+      c.font = crowned ? sans(nameSize, 700) : sans(nameSize)
       const name = who?.name ?? ''
       const nameW = c.measureText(name).width
-      c.fillStyle = MUTED
-      c.fillText(name, W - PAD - nameW, y)
+      const nameX = W - PAD - nameW
+      c.fillStyle = crowned ? INK : MUTED
+      c.fillText(name, nameX, y)
+      if (crowned && name) {
+        const firstW = c.measureText(Array.from(name)[0]).width
+        drawCrown(c, nameX + firstW * 0.45, y - nameSize * 0.78, nameSize * 0.95)
+      }
       c.font = sans(30 * k, 600)
       c.fillStyle = INK
-      const crownW = crown ? c.measureText(crown).width : 0
-      const title = ellipsize(`${pick.track.title} — ${pick.track.artist}`, W - PAD * 2 - dot * 2 - 16 - nameW - 48 - crownW)
-      c.fillText(title + crown, PAD + dot * 2 + 16, y)
+      const title = ellipsize(`${pick.track.title} — ${pick.track.artist}`, W - PAD * 2 - dot * 2 - 16 - nameW - 48)
+      c.fillText(title, PAD + dot * 2 + 16, y)
       y += 54 * k
     }
     if (r.order.length > songRows) {
@@ -178,4 +183,29 @@ export async function drawRecapCard(s: GameState): Promise<Blob> {
   c.fillText('Every song has a story.', PAD, H - PAD)
 
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not draw image'))), 'image/png'))
+}
+
+/** A little gold crown, tilted, with its base centred at (x, y). */
+function drawCrown(c: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const w = size
+  const h = size * 0.72
+  c.save()
+  c.translate(x, y)
+  c.rotate((-18 * Math.PI) / 180)
+  c.beginPath()
+  c.moveTo(-w / 2, 0)
+  c.lineTo(-w / 2, -h * 0.75)
+  c.lineTo(-w / 4, -h * 0.35)
+  c.lineTo(0, -h)
+  c.lineTo(w / 4, -h * 0.35)
+  c.lineTo(w / 2, -h * 0.75)
+  c.lineTo(w / 2, 0)
+  c.closePath()
+  c.fillStyle = '#f5c84c'
+  c.strokeStyle = '#a4730d'
+  c.lineWidth = Math.max(1.5, size * 0.07)
+  c.lineJoin = 'round'
+  c.fill()
+  c.stroke()
+  c.restore()
 }

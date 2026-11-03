@@ -1,5 +1,4 @@
-import { Crown } from 'lucide-react'
-import { PlayerAvatar } from '@/components/game-ui'
+import { CrownedName, PlayerAvatar } from '@/components/game-ui'
 import { scores, voteResults } from '@/game/engine'
 import type { GameState } from '@/game/types'
 import { useGame } from '@/hooks/use-game'
@@ -28,12 +27,10 @@ export function Scoreboard({ className, compact }: { className?: string; compact
       {rows.map((p) => (
         <div key={p.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5">
           <PlayerAvatar player={p} size="sm" />
-          <span className="flex-1 truncate text-sm font-medium">{p.id === meId ? 'You' : p.name}</span>
-          {!!crowns[p.id] && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground" title="Song of the round">
-              <Crown className="size-3.5 text-[#d9a400]" /> {crowns[p.id]}
-            </span>
-          )}
+          <span className="min-w-0 flex-1 pt-1 text-sm font-medium">
+            <CrownedName name={p.id === meId ? 'You' : p.name} crowned={!!crowns[p.id]} />
+            {(crowns[p.id] ?? 0) > 1 && <span className="ml-1.5 text-xs text-muted-foreground">×{crowns[p.id]}</span>}
+          </span>
           {guessing && (
             <span className={cn('w-8 text-right font-display text-lg tabular-nums', top > 0 && pts[p.id] === top && 'text-accent')}>{pts[p.id] ?? 0}</span>
           )}
