@@ -32,8 +32,18 @@ npm install
 npm run dev            # http://localhost:5173
 npm run dev -- --host  # also open it on your phone (same Wi-Fi)
 npm run build          # production build in dist/
+npm test               # automated tests (game rules + online sync)
 npm run lint
 ```
+
+### Tests
+
+`npm test` runs the automated tests with Vitest:
+
+- `src/game/engine.test.ts` covers every game rule: joining, turns, picks, playback, rounds, and leaving.
+- `src/game/online-client.test.ts` simulates several phones against a stand-in for Supabase, including two people tapping at the same moment.
+
+GitHub runs lint, type check, tests, and a build on every push (`.github/workflows/ci.yml`). The result shows as ✅ or ❌ next to each commit.
 
 Online play reads the Supabase project from `.env`. The publishable key in that file is meant to be public; the database's row-level security rules control access.
 

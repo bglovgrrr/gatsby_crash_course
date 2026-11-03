@@ -90,7 +90,7 @@ export function ListeningScreen() {
 
         {/* Controls */}
         <div className="flex items-center justify-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => dispatch({ type: 'prev' })} aria-label="Previous">
+          <Button variant="ghost" size="icon" onClick={() => dispatch({ type: 'prev', from: round.current })} aria-label="Previous">
             <SkipBack className="size-6" />
           </Button>
           <Button
@@ -101,7 +101,7 @@ export function ListeningScreen() {
           >
             {isPlaying ? <Pause className="size-7" fill="currentColor" /> : <Play className="size-7 translate-x-0.5" fill="currentColor" />}
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => dispatch({ type: 'next' })} aria-label={isLast ? 'Finish round' : 'Next song'}>
+          <Button variant="ghost" size="icon" onClick={() => dispatch({ type: 'next', from: round.current })} aria-label={isLast ? 'Finish round' : 'Next song'}>
             <SkipForward className="size-6" />
           </Button>
         </div>
@@ -122,7 +122,7 @@ export function ListeningScreen() {
                     <span className="font-semibold">{picker.id === meId ? 'Your turn to talk' : `${picker.name}, tell us`}</span>
                     <span className="text-muted-foreground"> — what does this song mean to you?</span>
                   </p>
-                  <Button variant={ended ? 'brand' : 'secondary'} size="sm" className="justify-self-start" onClick={() => dispatch({ type: 'next' })}>
+                  <Button variant={ended ? 'brand' : 'secondary'} size="sm" className="justify-self-start" onClick={() => dispatch({ type: 'next', from: round.current })}>
                     {isLast ? 'Finish round' : 'Next song'} <SkipForward />
                   </Button>
                 </div>

@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "build:preview": "vite build --mode preview",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",
@@ -37,6 +39,7 @@
     "typescript": "~7.0.2",
     "vite": "^8.3.5",
     "vite-plugin-pwa": "^2.0.0",
-    "vite-plugin-singlefile": "^2.3.4"
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "4.1.12"
   }
 }

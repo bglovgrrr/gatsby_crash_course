@@ -76,8 +76,12 @@ export type Action =
   | { type: 'play' }
   | { type: 'pause' }
   | { type: 'seek'; positionMs: number }
-  | { type: 'next' }
-  | { type: 'prev' }
+  /**
+   * `from` is the song index the tap was meant for. If two people tap at once,
+   * the second tap no longer matches and is ignored (no double skip).
+   */
+  | { type: 'next'; from?: number }
+  | { type: 'prev'; from?: number }
   | { type: 'jump'; index: number }
   | { type: 'trackEnded' }
   | { type: 'nextRound' }

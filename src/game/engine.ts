@@ -180,12 +180,14 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
 
     case 'next': {
       if (s.phase !== 'listening' || !round) return s
+      if (a.from !== undefined && a.from !== round!.current) return s
       if (round!.current < round!.order.length - 1) return loadTrack(s, round!.current + 1, true, now)
       return { ...s, phase: 'between', playback: { isPlaying: false, positionMs: 0, updatedAt: now } }
     }
 
     case 'prev': {
       if (s.phase !== 'listening' || !round) return s
+      if (a.from !== undefined && a.from !== round!.current) return s
       if (playbackPosition(s, now) > 3000 || round!.current === 0) return loadTrack(s, round!.current, s.playback.isPlaying, now)
       return loadTrack(s, round!.current - 1, true, now)
     }
