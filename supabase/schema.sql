@@ -30,6 +30,18 @@ create table if not exists public.room_members (
 create index if not exists room_members_user_idx on public.room_members (user_id);
 
 -- ---------- Security ----------
+-- Helper functions live in `private`, which the web API does not expose.
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
+-- Remove helpers from older versions of this script that lived in `public`.
+drop policy if exists "Members can read their rooms" on public.rooms;
+drop policy if exists "Members can update their rooms" on public.rooms;
+drop policy if exists "Members can see who is in their rooms" on public.room_members;
+drop function if exists public.is_room_member(uuid);
+drop function if exists public.pick_player_color(jsonb);
+
 alter table public.rooms enable row level security;
 alter table public.room_members enable row level security;
 
@@ -40,7 +52,7 @@ revoke insert, update, delete on public.room_members from authenticated;
 grant select, update on public.rooms to authenticated;
 grant select on public.room_members to authenticated;
 
-create or replace function public.is_room_member(rid uuid)
+create or replace function private.is_room_member(rid uuid)
 returns boolean
 language sql
 stable
@@ -55,20 +67,20 @@ $$;
 
 drop policy if exists "Members can read their rooms" on public.rooms;
 create policy "Members can read their rooms" on public.rooms
-  for select to authenticated using (public.is_room_member(id));
+  for select to authenticated using (private.is_room_member(id));
 
 drop policy if exists "Members can update their rooms" on public.rooms;
 create policy "Members can update their rooms" on public.rooms
   for update to authenticated
-  using (public.is_room_member(id))
-  with check (public.is_room_member(id));
+  using (private.is_room_member(id))
+  with check (private.is_room_member(id));
 
 drop policy if exists "Members can see who is in their rooms" on public.room_members;
 create policy "Members can see who is in their rooms" on public.room_members
-  for select to authenticated using (public.is_room_member(room_id));
+  for select to authenticated using (private.is_room_member(room_id));
 
 -- ---------- Functions the app calls ----------
-create or replace function public.pick_player_color(players jsonb)
+create or replace function private.pick_player_color(players jsonb)
 returns text
 language sql
 immutable
@@ -81,6 +93,9 @@ as $$
      order by i limit 1),
     '#cfcaff');
 $$;
+
+-- create_room and join_room are the app's only way in. They are SECURITY DEFINER so they can
+-- add you to a room, which is why each one checks auth.uid() and is closed to anon.
 
 -- Create a game. The caller becomes the host and first player.
 create or replace function public.create_room(player_name text)
@@ -152,7 +167,7 @@ begin
 
     update public.rooms
     set state = jsonb_set(state, '{players}', (state->'players') || jsonb_build_array(jsonb_build_object(
-          'id', uid::text, 'name', name, 'color', public.pick_player_color(state->'players')))),
+          'id', uid::text, 'name', name, 'color', private.pick_player_color(state->'players')))),
         version = version + 1,
         updated_at = now()
     where id = r.id
@@ -173,10 +188,11 @@ as $$ select now(); $$;
 
 revoke execute on function public.create_room(text) from public, anon;
 revoke execute on function public.join_room(text, text) from public, anon;
-revoke execute on function public.is_room_member(uuid) from public, anon;
+revoke execute on function private.is_room_member(uuid) from public, anon;
+revoke execute on function private.pick_player_color(jsonb) from public, anon, authenticated;
 grant execute on function public.create_room(text) to authenticated;
 grant execute on function public.join_room(text, text) to authenticated;
-grant execute on function public.is_room_member(uuid) to authenticated;
+grant execute on function private.is_room_member(uuid) to authenticated; -- used by the row-level security policies
 grant execute on function public.server_time() to authenticated, anon;
 
 -- ---------- Live updates ----------

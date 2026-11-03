@@ -34,6 +34,10 @@ How it works:
 - The **host's device plays the music**; everyone else's phone is a remote control.
 - Invite links look like `https://your-site/?join=ABCD`.
 
+### Claude Code + Supabase
+
+`.mcp.json` connects Claude Code to this Supabase project (docs, database, logs, debugging). The first time you open the project in Claude Code on your computer, run `/mcp`, choose **supabase** and **Authenticate**. Supabase's agent skills are in `.claude/skills/`.
+
 Free-tier note: Supabase pauses a free project after a week without use. Open the dashboard and press **Restore** to wake it.
 
 ## Stack
