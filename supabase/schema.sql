@@ -1,6 +1,6 @@
--- Side B: database setup.
--- Paste this whole file into Supabase → SQL Editor → New query, then press Run.
--- Safe to run more than once.
+-- Side B: full database setup in one file (the same as supabase/migrations/ combined).
+-- Use it for a brand-new Supabase project: SQL Editor → New query → paste → Run.
+-- Safe to run more than once. Schema changes from now on go in supabase/migrations/.
 --
 -- How it works:
 --   * Players sign in anonymously (no accounts). Their auth user id is their player id.
@@ -20,6 +20,7 @@ create table if not exists public.rooms (
   updated_at timestamptz not null default now()
 );
 create index if not exists rooms_code_idx on public.rooms (code, created_at desc);
+create index if not exists rooms_host_id_idx on public.rooms (host_id);
 
 create table if not exists public.room_members (
   room_id uuid not null references public.rooms (id) on delete cascade,

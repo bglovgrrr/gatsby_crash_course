@@ -23,7 +23,7 @@ npm run lint
 
 Online rooms use the free Supabase project set in `.env`. One-time setup in the Supabase dashboard:
 
-1. **SQL Editor → New query**: paste all of [`supabase/schema.sql`](supabase/schema.sql) and press **Run**. It's safe to run again after changes.
+1. The database for this project is already set up (see `supabase/migrations/`). For a brand-new Supabase project, paste all of [`supabase/schema.sql`](supabase/schema.sql) into **SQL Editor → New query** and press **Run**.
 2. **Authentication → Sign In / Providers**: turn on **Allow anonymous sign-ins**.
 
 How it works:
