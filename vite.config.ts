@@ -24,8 +24,8 @@ export default defineConfig(({ mode }) => {
               name: 'Side B',
               short_name: 'Side B',
               description: 'A music storytelling game to play with friends',
-              theme_color: '#0b0a12',
-              background_color: '#0b0a12',
+              theme_color: '#f6f5fa',
+              background_color: '#f6f5fa',
               display: 'standalone',
               start_url: '/',
               icons: [

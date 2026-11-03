@@ -25,6 +25,7 @@ npm run lint
 | --- | --- | --- |
 | App | Vite + React 19 + TypeScript | Fast, simple, and AI tools know it well |
 | UI | Tailwind CSS v4 + shadcn/ui components, `motion` for animation, `lucide-react` icons | Modern look; components are plain files you own (`src/components/ui`) |
+| Brand | Pastel palette, Fraunces (display) + Figtree (body), bundled locally | Calm and friendly. All colours are tokens in `src/index.css` |
 | Install | PWA (`vite-plugin-pwa`) | Add to Home Screen on iPhone and Android |
 | Song search | iTunes Search API | Free, no key, 30-second previews |
 | Backend (next) | Supabase free tier | Real-time sync, Postgres for history, anonymous sign-in (no accounts), row-level security |
@@ -58,7 +59,8 @@ The rules live in one pure function (`engine.ts`), and the same rules run in dem
 - [x] Question themes, custom questions, "Surprise me"
 - [x] Song search with previews, optional "why I picked it" note
 - [x] Shared play / pause / skip / seek; songs revealed one at a time
-- [x] Phone + desktop layouts, light/dark, installable
+- [x] Phone + desktop layouts, installable
+- [x] Light / dark / match-device theme switch
 - [ ] **Online rooms with Supabase.** Create a room, friends join with a 4-letter code, and everything stays in sync. Uses anonymous sign-in and row-level security, so only players in a room can see it.
 - [ ] Game history saved to the database
 - [ ] Spotify: host logs in, songs play in full, "Save to Spotify" playlist at the end

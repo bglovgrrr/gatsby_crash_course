@@ -1,10 +1,9 @@
-export type Theme = { id: string; name: string; emoji: string; prompts: string[] }
+export type Theme = { id: string; name: string; prompts: string[] }
 
 export const THEMES: Theme[] = [
   {
     id: 'throwback',
     name: 'Throwback',
-    emoji: '📼',
     prompts: [
       'Pick a song that reminds you of high school',
       'What song takes you back to the summer you were 16?',
@@ -16,7 +15,6 @@ export const THEMES: Theme[] = [
   {
     id: 'family',
     name: 'Family',
-    emoji: '🏡',
     prompts: [
       'What song reminds you of your dad?',
       'What song reminds you of your mom?',
@@ -28,7 +26,6 @@ export const THEMES: Theme[] = [
   {
     id: 'love',
     name: 'Love & heartbreak',
-    emoji: '💔',
     prompts: [
       'A song that reminds you of your first crush',
       'Your ultimate breakup song',
@@ -40,7 +37,6 @@ export const THEMES: Theme[] = [
   {
     id: 'hype',
     name: 'Hype',
-    emoji: '⚡',
     prompts: [
       'Your go-to pump-up song',
       'Your karaoke song, no shame',
@@ -52,7 +48,6 @@ export const THEMES: Theme[] = [
   {
     id: 'deep',
     name: 'Deep cuts',
-    emoji: '🌊',
     prompts: [
       'A song that got you through a hard time',
       'A song that changed how you see the world',
@@ -64,7 +59,6 @@ export const THEMES: Theme[] = [
   {
     id: 'places',
     name: 'Places',
-    emoji: '🗺️',
     prompts: [
       'The perfect road trip song',
       'A song that reminds you of a specific city',
@@ -76,7 +70,6 @@ export const THEMES: Theme[] = [
   {
     id: 'wild',
     name: 'Wildcard',
-    emoji: '🎲',
     prompts: [
       'The theme song for your life right now',
       'A song that describes this friend group',

@@ -7,6 +7,9 @@ import { ALL_PROMPTS } from './prompts'
 import type { Action, GameState, Player, Track } from './types'
 import { PLAYER_COLORS } from './colors'
 
+/** Same song regardless of where it came from (demo list or live search). */
+const songKey = (t: Track) => `${t.title}|${t.artist}`.toLowerCase()
+
 const BOTS = [
   { name: 'Maya', notes: ['This was on every mixtape I made', 'Instant goosebumps', 'Long story, ask me'] },
   { name: 'Jordan', notes: ['Do not judge me', 'My dad played this every Sunday', 'Windows down, volume up'] },
@@ -91,7 +94,9 @@ export class LocalGameClient implements GameClient {
       for (const bot of s.players.filter((p) => p.isBot)) {
         if (round.picks.some((p) => p.playerId === bot.id)) continue
         this.later(`pick-${round.id}-${bot.id}`, 2500 + Math.random() * 5000, async () => {
-          const track = await this.botTrack(round.picks.map((p) => p.track.id))
+          const taken = () => (currentRound(this.state)?.picks ?? []).map((p) => songKey(p.track))
+          let track = await this.botTrack(taken())
+          if (taken().includes(songKey(track))) track = await this.botTrack(taken())
           const notes = BOTS.find((b) => b.name === bot.name)?.notes ?? ['']
           this.apply({ type: 'pick', track, note: sample(notes) }, bot.id)
         })
@@ -101,10 +106,10 @@ export class LocalGameClient implements GameClient {
 
   /** Pick a random well-known song; use live search to get real artwork + audio when possible. */
   private async botTrack(taken: string[]): Promise<Track> {
-    const base = sample(DEMO_CATALOG.filter((t) => !taken.includes(t.id)))
+    const base = sample(DEMO_CATALOG.filter((t) => !taken.includes(songKey(t))))
     try {
       const { tracks, offline } = await searchTracks(`${base.title} ${base.artist}`)
-      if (!offline && tracks[0] && !taken.includes(tracks[0].id)) return tracks[0]
+      if (!offline && tracks[0] && !taken.includes(songKey(tracks[0]))) return tracks[0]
     } catch {
       /* fall through */
     }

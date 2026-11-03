@@ -25,7 +25,7 @@ export function LobbyScreen() {
       <div className="text-center">
         <p className="text-sm font-medium text-muted-foreground">Room code</p>
         <button onClick={copy} className="group mt-1 inline-flex cursor-pointer items-center gap-3">
-          <span className="font-mono text-6xl font-bold tracking-[0.2em] brand-text">{state.code}</span>
+          <span className="font-display text-7xl font-medium tracking-[0.12em] italic brand-text font-soft">{state.code}</span>
           <Copy className="size-5 text-muted-foreground transition group-hover:text-foreground" />
         </button>
         <p className="mt-2 text-sm text-muted-foreground">Friends join with this code.</p>

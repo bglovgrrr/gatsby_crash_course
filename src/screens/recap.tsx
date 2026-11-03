@@ -34,8 +34,8 @@ export function RecapScreen({ onExit }: { onExit: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto grid w-full max-w-2xl gap-6 py-6">
       <div className="text-center">
-        <h2 className="text-4xl font-extrabold">
-          That's a <span className="brand-text">wrap</span>.
+        <h2 className="text-5xl font-medium font-soft">
+          That's a <em className="brand-text pr-1">wrap.</em>
         </h2>
         <p className="mt-2 text-muted-foreground">
           {rounds.length} {rounds.length === 1 ? 'question' : 'questions'} · {songs} songs · {state.players.length} friends
@@ -55,7 +55,7 @@ export function RecapScreen({ onExit }: { onExit: () => void }) {
         <Card key={r.id} className="p-3">
           <div className="flex items-start gap-3 px-2 pt-1 pb-3">
             {playerById(state, r.askerId) && <PlayerAvatar player={playerById(state, r.askerId)!} size="sm" />}
-            <p className="font-display text-lg leading-snug font-bold">“{r.prompt}”</p>
+            <p className="font-display text-lg leading-snug italic">{r.prompt}</p>
           </div>
           {r.order.map((pid) => {
             const p = r.picks.find((x) => x.playerId === pid)!

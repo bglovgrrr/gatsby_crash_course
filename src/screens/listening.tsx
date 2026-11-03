@@ -38,11 +38,11 @@ export function ListeningScreen() {
             className="grid justify-items-center gap-5 text-center"
           >
             {/* Record + sleeve */}
-            <div className="relative w-[min(72vw,320px)]">
+            <div className="relative w-[min(62vw,300px)]">
               <div
                 className={cn(
-                  'absolute inset-y-[4%] right-0 aspect-square rounded-full ring-1 ring-white/15 bg-[radial-gradient(circle,#2a2a2a_0_14%,#0d0d0d_15%_17%,#1b1b1b_18%_100%)] shadow-xl transition-transform duration-700',
-                  isPlaying ? 'translate-x-[22%] animate-spin-slow' : 'translate-x-[8%]',
+                  'vinyl absolute inset-y-[4%] right-0 aspect-square rounded-full transition-transform duration-700 ease-out',
+                  isPlaying ? 'translate-x-[24%] animate-spin-slow' : 'translate-x-[6%]',
                 )}
                 style={{ width: '92%' }}
               >
@@ -50,11 +50,11 @@ export function ListeningScreen() {
                   <AlbumArt track={pick.track} rounded="rounded-full" className="size-full" />
                 </div>
               </div>
-              <AlbumArt track={pick.track} className="relative w-full shadow-2xl shadow-black/30" />
+              <AlbumArt track={pick.track} className="relative w-full shadow-[0_24px_48px_-20px_rgb(40_30_80/0.45)]" />
             </div>
 
             <div className="grid gap-1">
-              <h2 className="text-2xl font-bold sm:text-3xl">{pick.track.title}</h2>
+              <h2 className="text-3xl font-medium font-soft sm:text-4xl">{pick.track.title}</h2>
               <p className="text-lg text-muted-foreground">{pick.track.artist}</p>
             </div>
 
@@ -62,7 +62,7 @@ export function ListeningScreen() {
               <div className="flex items-center gap-2 rounded-full bg-secondary py-1 pr-4 pl-1 text-secondary-foreground">
                 <PlayerAvatar player={picker} size="sm" />
                 <span className="text-sm font-medium">Picked by {picker.id === meId ? 'you' : picker.name}</span>
-                <Equalizer playing={isPlaying} className="ml-1 text-primary" />
+                <Equalizer playing={isPlaying} className="ml-1 text-accent" />
               </div>
             )}
             {pick.note && <p className="max-w-sm text-balance text-muted-foreground italic">“{pick.note}”</p>}
@@ -72,13 +72,14 @@ export function ListeningScreen() {
         {/* Progress */}
         <div className="mx-auto grid w-full max-w-md gap-1.5">
           <div
-            className="group relative h-2 cursor-pointer rounded-full bg-muted"
+            className="group relative h-1.5 cursor-pointer rounded-full bg-muted"
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
               dispatch({ type: 'seek', positionMs: ((e.clientX - r.left) / r.width) * dur })
             }}
           >
-            <div className="brand-gradient absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%` }} />
+            <div className="absolute inset-y-0 left-0 rounded-full bg-[linear-gradient(90deg,var(--text-grad-1),var(--text-grad-2))]" style={{ width: `${pct}%` }} />
+            <div className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-foreground opacity-0 shadow transition-opacity group-hover:opacity-100" style={{ left: `${pct}%` }} />
           </div>
           <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
             <span>{formatTime(pos)}</span>
@@ -108,7 +109,7 @@ export function ListeningScreen() {
           {(ended || (!isPlaying && !fresh)) && picker && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <Card className="mx-auto flex max-w-md items-start gap-3 p-4">
-                <MessageCircle className="mt-0.5 size-5 shrink-0 text-primary" />
+                <MessageCircle className="mt-0.5 size-5 shrink-0 text-accent" />
                 <div className="grid gap-3">
                   <p>
                     <span className="font-semibold">{picker.id === meId ? 'Your turn to talk' : `${picker.name}, tell us`}</span>
@@ -142,7 +143,7 @@ export function ListeningScreen() {
       {/* Queue */}
       <aside className="md:sticky md:top-20 md:self-start">
         <Card className="p-3">
-          <h3 className="px-2 pt-1 pb-2 font-semibold">This round's mixtape</h3>
+          <h3 className="px-2 pt-1 pb-2 text-lg font-medium font-soft">This round's mixtape</h3>
           <ol className="grid gap-1">
             {round.order.map((pid, i) => {
               const p = round.picks.find((x) => x.playerId === pid)!

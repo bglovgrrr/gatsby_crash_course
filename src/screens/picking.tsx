@@ -101,7 +101,7 @@ export function PickingScreen() {
                 <div className="flex items-center gap-4">
                   <AlbumArt track={selected} className="size-24 shadow-lg" />
                   <div className="min-w-0">
-                    <div className="truncate font-display text-xl font-bold">{selected.title}</div>
+                    <div className="truncate font-display text-2xl font-medium">{selected.title}</div>
                     <div className="truncate text-muted-foreground">{selected.artist}</div>
                     <div className="mt-2">
                       <PreviewButton track={selected} />
@@ -160,10 +160,10 @@ export function PickingScreen() {
           ) : (
             <motion.div key="picked" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}>
               <Card className="grid gap-4 p-5 text-center">
-                <p className="text-sm font-semibold tracking-wide text-emerald-600 uppercase dark:text-emerald-400">Locked in</p>
+                <p className="text-sm font-semibold tracking-wide text-success uppercase">Locked in</p>
                 <AlbumArt track={myPick!.track} className="mx-auto size-40 shadow-xl" />
                 <div>
-                  <div className="font-display text-xl font-bold">{myPick!.track.title}</div>
+                  <div className="font-display text-2xl font-medium">{myPick!.track.title}</div>
                   <div className="text-muted-foreground">{myPick!.track.artist}</div>
                 </div>
                 <Button variant="outline" className="justify-self-center" onClick={() => setChanging(true)}>
@@ -177,7 +177,7 @@ export function PickingScreen() {
 
       <aside className="grid gap-3 md:sticky md:top-20">
         <Card className="p-4">
-          <h3 className="mb-3 font-semibold">
+          <h3 className="mb-3 text-lg font-medium font-soft">
             {round.picks.length}/{state.players.length} picked
           </h3>
           <ul className="grid gap-3">
@@ -187,7 +187,7 @@ export function PickingScreen() {
                 <li key={p.id} className="flex items-center gap-3">
                   <PlayerAvatar player={p} size="sm" done={done} />
                   <span className="flex-1 truncate text-sm font-medium">{p.id === meId ? 'You' : p.name}</span>
-                  <span className={done ? 'text-xs text-emerald-600 dark:text-emerald-400' : 'text-xs text-muted-foreground'}>
+                  <span className={done ? 'text-xs font-medium text-success' : 'text-xs text-muted-foreground'}>
                     {done ? 'Ready' : 'Choosing…'}
                   </span>
                 </li>

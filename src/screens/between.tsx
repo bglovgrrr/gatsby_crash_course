@@ -14,8 +14,8 @@ export function BetweenScreen() {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="mx-auto grid w-full max-w-xl gap-5 py-6">
       <div className="text-center">
-        <p className="text-sm font-semibold tracking-wide text-primary uppercase">Round {round.number} complete</p>
-        <h2 className="mt-1 text-3xl font-bold">What a mixtape.</h2>
+        <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">Round {round.number} complete</p>
+        <h2 className="mt-1.5 text-4xl font-medium font-soft">What a mixtape.</h2>
       </div>
       <PromptCard prompt={round.prompt} asker={playerById(state, round.askerId)} compact />
       <Card className="p-2">
