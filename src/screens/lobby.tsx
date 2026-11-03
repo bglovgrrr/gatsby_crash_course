@@ -1,4 +1,4 @@
-import { Copy, Play } from 'lucide-react'
+import { Copy, Play, Share2, Speaker } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
 import { PlayerAvatar } from '@/components/game-ui'
@@ -8,8 +8,28 @@ import { MIN_PLAYERS } from '@/game/engine'
 import { useGame } from '@/hooks/use-game'
 
 export function LobbyScreen() {
-  const { state, dispatch, isHost, meId } = useGame()
+  const { state, dispatch, isHost, meId, client } = useGame()
   const enough = state.players.length >= MIN_PLAYERS
+  const host = state.players.find((p) => p.id === state.hostId)
+  const inviteUrl = `${window.location.origin}${window.location.pathname}?join=${state.code}`
+
+  const invite = async () => {
+    const text = `Join my Side B game! Code: ${state.code}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Side B', text, url: inviteUrl })
+        return
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return
+    }
+    try {
+      await navigator.clipboard.writeText(`${text}\n${inviteUrl}`)
+      toast.success('Invite link copied')
+    } catch {
+      toast(inviteUrl)
+    }
+  }
 
   const copy = async () => {
     try {
@@ -29,6 +49,11 @@ export function LobbyScreen() {
           <Copy className="size-5 text-muted-foreground transition group-hover:text-foreground" />
         </button>
         <p className="mt-2 text-sm text-muted-foreground">Friends join with this code.</p>
+        {client.mode === 'online' && (
+          <Button variant="outline" size="sm" className="mt-4" onClick={invite}>
+            <Share2 /> Send invite link
+          </Button>
+        )}
       </div>
 
       <Card className="p-2">
@@ -57,6 +82,13 @@ export function LobbyScreen() {
           </li>
         </ul>
       </Card>
+
+      {client.mode === 'online' && host && (
+        <p className="flex items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+          <Speaker className="size-4 shrink-0" />
+          {isHost ? 'Music plays from your device. Connect it to a speaker.' : `Music plays from ${host.name}'s device.`}
+        </p>
+      )}
 
       {isHost ? (
         <Button variant="brand" size="lg" disabled={!enough} onClick={() => dispatch({ type: 'start' })}>

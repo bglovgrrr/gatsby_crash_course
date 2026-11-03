@@ -1,10 +1,14 @@
+import { Loader2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { AudioEngine } from '@/components/audio-engine'
+import { toast } from 'sonner'
+import { AudioEngine, unlockAudio } from '@/components/audio-engine'
 import { Toaster } from '@/components/ui/sonner'
 import type { GameClient } from '@/game/client'
 import { LocalGameClient } from '@/game/local-client'
+import { OnlineGameClient } from '@/game/online-client'
 import { GameContext, useGame } from '@/hooks/use-game'
+import { onlineAvailable } from '@/lib/supabase'
 import { AskingScreen } from '@/screens/asking'
 import { BetweenScreen } from '@/screens/between'
 import { GameShell } from '@/screens/game-shell'
@@ -45,25 +49,69 @@ function Game({ onExit }: { onExit: () => void }) {
 
 export default function App() {
   const [client, setClient] = useState<GameClient | null>(null)
+  const [resuming, setResuming] = useState(onlineAvailable)
+
+  // Reopen the game this device was in (refresh, phone locked, app reopened).
+  useEffect(() => {
+    if (!onlineAvailable) return
+    OnlineGameClient.resume()
+      .then((c) => c && setClient(c))
+      .catch(() => OnlineGameClient.forget())
+      .finally(() => setResuming(false))
+  }, [])
+
+  // Let this device play sound later, even when someone else presses play.
+  useEffect(() => {
+    window.addEventListener('pointerdown', unlockAudio)
+    return () => window.removeEventListener('pointerdown', unlockAudio)
+  }, [])
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
   }, [client])
 
   const exit = () => {
+    if (client?.mode === 'online') {
+      const s = client.getState()
+      // Leaving a lobby frees your seat; mid-game you stay in the recap.
+      if (s.phase === 'lobby') {
+        try {
+          client.dispatch({ type: 'leave', playerId: client.meId })
+        } catch {
+          /* ignore */
+        }
+      }
+      OnlineGameClient.forget()
+    }
     client?.dispose()
     setClient(null)
+  }
+
+  const go = async (make: () => Promise<GameClient>) => {
+    try {
+      setClient(await make())
+    } catch (err) {
+      toast.error((err as Error).message || 'Something went wrong')
+    }
   }
 
   return (
     <>
       <div className="app-backdrop" />
-      {client ? (
+      {resuming ? (
+        <div className="grid min-h-dvh place-items-center text-muted-foreground">
+          <Loader2 className="size-6 animate-spin" />
+        </div>
+      ) : client ? (
         <GameContext.Provider value={client}>
           <Game onExit={exit} />
         </GameContext.Provider>
       ) : (
-        <HomeScreen onDemo={(name) => setClient(new LocalGameClient(name))} />
+        <HomeScreen
+          onDemo={(name) => setClient(new LocalGameClient(name))}
+          onCreate={(name) => go(() => OnlineGameClient.create(name))}
+          onJoin={(code, name) => go(() => OnlineGameClient.join(code, name))}
+        />
       )}
       <Toaster />
     </>

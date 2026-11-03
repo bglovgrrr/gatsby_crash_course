@@ -1,4 +1,4 @@
-import { ExternalLink, MessageCircle, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { ExternalLink, MessageCircle, Pause, Play, SkipBack, SkipForward, Speaker } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { AlbumArt, Equalizer, PlayerAvatar, PromptCard } from '@/components/game-ui'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,8 @@ import { spotifySearchUrl } from '@/music/search'
 import { cn, formatTime } from '@/lib/utils'
 
 export function ListeningScreen() {
-  const { state, dispatch, meId } = useGame()
+  const { state, dispatch, meId, client } = useGame()
+  const host = playerById(state, state.hostId)
   const round = currentRound(state)!
   const pick = currentPick(state)!
   const picker = playerById(state, pick.playerId)
@@ -104,6 +105,12 @@ export function ListeningScreen() {
             <SkipForward className="size-6" />
           </Button>
         </div>
+
+        {!client.isSpeaker && host && (
+          <p className="-mt-1 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <Speaker className="size-3.5" /> Playing on {host.name}'s device
+          </p>
+        )}
 
         <AnimatePresence>
           {(ended || (!isPlaying && !fresh)) && picker && (

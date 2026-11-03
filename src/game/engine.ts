@@ -1,3 +1,4 @@
+import { clock } from '@/lib/clock'
 import type { Action, GameState, Pick, Player, Round } from './types'
 
 export const MIN_PLAYERS = 2
@@ -11,7 +12,7 @@ const fail = (msg: string): never => {
   throw new GameError(msg)
 }
 
-export function createGame(host: Player, code: string, now = Date.now()): GameState {
+export function createGame(host: Player, code: string, now = clock.now()): GameState {
   return {
     id: `game_${code}_${now}`,
     code,
@@ -39,7 +40,7 @@ export function currentPick(s: GameState): Pick | undefined {
   return r.picks.find((p) => p.playerId === pid)
 }
 
-export function playbackPosition(s: GameState, now = Date.now()) {
+export function playbackPosition(s: GameState, now = clock.now()) {
   const pb = s.playback
   const pos = pb.isPlaying ? pb.positionMs + (now - pb.updatedAt) : pb.positionMs
   const max = currentPick(s)?.track.durationMs ?? Infinity
@@ -79,7 +80,7 @@ function loadTrack(s: GameState, index: number, autoplay: boolean, now: number):
  * The whole game's rules. Pure function: (state, action, who did it) -> new state.
  * The same rules run in demo mode and (later) online mode.
  */
-export function reduce(s: GameState, a: Action, actorId: string, now = Date.now()): GameState {
+export function reduce(s: GameState, a: Action, actorId: string, now = clock.now()): GameState {
   const isHost = actorId === s.hostId
   const actor = playerById(s, actorId)
   if (a.type !== 'join' && !actor) fail('You are not in this game.')

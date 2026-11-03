@@ -1,12 +1,13 @@
-import { ArrowRight, Headphones, MessageCircleQuestion, Music2, Users } from 'lucide-react'
+import { ArrowRight, Headphones, Loader2, LogIn, MessageCircleQuestion, Music2, Sparkles, Users } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Logo } from '@/components/game-ui'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { onlineAvailable } from '@/lib/supabase'
 import { safeStorage } from '@/lib/utils'
 
 const STEPS = [
@@ -15,13 +16,56 @@ const STEPS = [
   { icon: Headphones, title: 'Listen & talk', text: 'Play each one and tell the story behind it.', tint: 'var(--pastel-4)' },
 ]
 
-export function HomeScreen({ onDemo }: { onDemo: (name: string) => void }) {
-  const [name, setName] = useState(() => safeStorage.get('sideb:name') ?? '')
-  const trimmed = name.trim()
+/** Code from an invite link like https://…/?join=ABCD */
+function inviteCode() {
+  try {
+    return new URLSearchParams(window.location.search).get('join')?.toUpperCase().slice(0, 4) ?? ''
+  } catch {
+    return ''
+  }
+}
 
-  const start = () => {
+export function HomeScreen({
+  onDemo,
+  onCreate,
+  onJoin,
+}: {
+  onDemo: (name: string) => void
+  onCreate: (name: string) => Promise<void>
+  onJoin: (code: string, name: string) => Promise<void>
+}) {
+  const [name, setName] = useState(() => safeStorage.get('sideb:name') ?? '')
+  const [code, setCode] = useState(inviteCode)
+  const [joining, setJoining] = useState(() => inviteCode() !== '')
+  const [busy, setBusy] = useState<'create' | 'join' | null>(null)
+  const trimmed = name.trim()
+  const codeOk = /^[A-Z]{4}$/.test(code)
+
+  // Opened from an invite link: bring the join form into view.
+  useEffect(() => {
+    if (!inviteCode()) return
+    const t = setTimeout(() => document.getElementById('player-name')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 400)
+    return () => clearTimeout(t)
+  }, [])
+
+  const remember = () => safeStorage.set('sideb:name', trimmed)
+
+  const run = async (kind: 'create' | 'join') => {
+    if (!trimmed || busy) return
+    if (kind === 'join' && !codeOk) return
+    remember()
+    setBusy(kind)
+    try {
+      if (kind === 'create') await onCreate(trimmed)
+      else await onJoin(code, trimmed)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const demo = () => {
     if (!trimmed) return
-    safeStorage.set('sideb:name', trimmed)
+    remember()
     onDemo(trimmed)
   }
 
@@ -72,13 +116,15 @@ export function HomeScreen({ onDemo }: { onDemo: (name: string) => void }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault()
-                start()
+                if (!onlineAvailable) demo()
+                else run(joining ? 'join' : 'create')
               }}
               className="grid gap-4"
             >
               <label className="grid gap-2">
                 <span className="text-sm font-medium">Your name</span>
                 <Input
+                  id="player-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Brian"
@@ -87,24 +133,59 @@ export function HomeScreen({ onDemo }: { onDemo: (name: string) => void }) {
                   enterKeyHint="go"
                 />
               </label>
-              <Button type="submit" variant="brand" size="lg" disabled={!trimmed}>
-                Play a demo game <ArrowRight />
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">Demo mode: you play with three bot friends on this device.</p>
 
-              <div className="my-1 flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="h-px flex-1 bg-border" /> Playing with real friends <span className="h-px flex-1 bg-border" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button type="button" variant="outline" disabled>
-                  Create room
-                </Button>
-                <Button type="button" variant="outline" disabled>
-                  Join with code
-                </Button>
-              </div>
-              <p className="text-center text-xs text-muted-foreground">Online rooms are coming next.</p>
+              {onlineAvailable ? (
+                <>
+                  {joining ? (
+                    <div className="grid gap-3">
+                      <label className="grid gap-2">
+                        <span className="text-sm font-medium">Room code</span>
+                        <Input
+                          id="room-code"
+                          value={code}
+                          onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4))}
+                          placeholder="ABCD"
+                          autoCapitalize="characters"
+                          autoComplete="off"
+                          spellCheck={false}
+                          inputMode="text"
+                          className="text-center font-mono text-2xl tracking-[0.5em] uppercase placeholder:tracking-[0.5em]"
+                        />
+                      </label>
+                      <Button type="submit" variant="brand" size="lg" disabled={!trimmed || !codeOk || !!busy}>
+                        {busy === 'join' ? <Loader2 className="animate-spin" /> : <LogIn />} Join game
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setJoining(false)}>
+                        Start a new game instead
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      <Button type="submit" variant="brand" size="lg" disabled={!trimmed || !!busy}>
+                        {busy === 'create' ? <Loader2 className="animate-spin" /> : <Sparkles />} Start a game
+                      </Button>
+                      <Button type="button" variant="outline" size="lg" onClick={() => setJoining(true)}>
+                        <LogIn /> Join with a code
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <Button type="button" variant="ghost" onClick={demo} disabled={!trimmed}>
+                    Try a demo with bot friends <ArrowRight />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button type="submit" variant="brand" size="lg" disabled={!trimmed}>
+                    Play a demo game <ArrowRight />
+                  </Button>
+                  <p className="text-center text-xs text-muted-foreground">
+                    You play with three bot friends on this device. Online rooms work in the real app, not in this preview.
+                  </p>
+                </>
+              )}
             </form>
           </Card>
         </motion.div>
