@@ -184,6 +184,7 @@ create or replace function public.server_time()
 returns timestamptz
 language sql
 stable
+set search_path = ''
 as $$ select now(); $$;
 
 revoke execute on function public.create_room(text) from public, anon;
