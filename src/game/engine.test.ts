@@ -407,3 +407,25 @@ describe('song of the round', () => {
     expectError(() => reduce(listening(), { type: 'vote', owner: 'b' }, 'a'), /closed/)
   })
 })
+
+describe('group selfies', () => {
+  const between = () => play(listening(), [['a', { type: 'next' }], ['a', { type: 'next' }], ['a', { type: 'next' }]])
+
+  it('lets anyone attach a selfie to a round, and replace or remove it', () => {
+    const s0 = between()
+    const roundId = currentRound(s0)!.id
+    const s1 = reduce(s0, { type: 'photo', roundId, path: 'room/1.jpg' }, 'b', T0)
+    expect(currentRound(s1)!.photo).toEqual({ path: 'room/1.jpg', by: 'b', takenAt: T0 })
+    const s2 = reduce(s1, { type: 'photo', roundId, path: 'room/2.jpg' }, 'c', T0 + 1)
+    expect(currentRound(s2)!.photo!.path).toBe('room/2.jpg')
+    expect(currentRound(reduce(s2, { type: 'removePhoto', roundId }, 'a'))!.photo).toBeUndefined()
+  })
+
+  it('works on earlier rounds and in the recap, but not in the lobby or for unknown rounds', () => {
+    const s = reduce(between(), { type: 'end' }, 'a')
+    const roundId = currentRound(s)!.id
+    expect(currentRound(reduce(s, { type: 'photo', roundId, path: 'p.jpg' }, 'c'))!.photo!.by).toBe('c')
+    expectError(() => reduce(s, { type: 'photo', roundId: 'nope', path: 'p.jpg' }, 'c'), /no longer exists/)
+    expectError(() => reduce(createGame(player('a'), 'ABCD'), { type: 'photo', roundId, path: 'p.jpg' }, 'a'), /after a round/)
+  })
+})

@@ -18,6 +18,11 @@ export interface GameClient {
   subscribe(listener: () => void): () => void
   dispatch(action: Action): void
   react(emoji: string): void
+  /** Store a group selfie; returns the path to save in the round. */
+  uploadPhoto(image: Blob): Promise<string>
+  /** A URL the browser can show for a stored photo (signed and short-lived online). */
+  photoUrl(path: string): Promise<string>
+  deletePhoto(path: string): Promise<void>
   onReaction(listener: (r: Reaction) => void): () => void
   dispose(): void
 }

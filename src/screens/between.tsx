@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { GameSettings } from '@/components/game-settings'
 import { AlbumArt, CrownedName, PlayerAvatar, PromptCard } from '@/components/game-ui'
 import { Scoreboard } from '@/components/scoreboard'
+import { SelfieCard } from '@/components/selfie'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { currentRound, playerById, voteResults } from '@/game/engine'
@@ -80,6 +81,10 @@ export function BetweenScreen() {
       </div>
 
       <aside className="grid content-start gap-3 md:sticky md:top-20">
+        <Card className="p-4">
+          <SelfieCard round={round} />
+        </Card>
+
         <Button variant="brand" size="lg" onClick={() => dispatch({ type: 'nextRound' })}>
           Next: {nextAsker.id === meId ? 'you ask' : `${nextAsker.name} asks`} <ArrowRight />
         </Button>

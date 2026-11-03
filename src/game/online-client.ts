@@ -104,6 +104,24 @@ export class OnlineGameClient implements GameClient {
     void this.channel?.send({ type: 'broadcast', event: 'reaction', payload: r })
   }
 
+  /** Upload to the private "selfies" bucket under this room's folder. */
+  uploadPhoto = async (image: Blob) => {
+    const path = `${this.roomId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+    const { error } = await supabase!.storage.from('selfies').upload(path, image, { contentType: 'image/jpeg', upsert: false })
+    if (error) throw new OnlineError(friendlyError(error))
+    return path
+  }
+
+  photoUrl = async (path: string) => {
+    const { data, error } = await supabase!.storage.from('selfies').createSignedUrl(path, 60 * 60)
+    if (error || !data) throw new OnlineError(friendlyError(error))
+    return data.signedUrl
+  }
+
+  deletePhoto = async (path: string) => {
+    await supabase!.storage.from('selfies').remove([path])
+  }
+
   onReaction = (listener: (r: Reaction) => void) => {
     this.reactionListeners.add(listener)
     return () => this.reactionListeners.delete(listener)

@@ -20,6 +20,7 @@ Side B is a relaxed music game for 2–8 friends in the same room. Someone asks 
 - **Pick timer** (optional). 60s, 90s, or 2 min; listening starts automatically when time's up.
 - **Reactions.** Tap ❤️ 😂 😭 🔥 🙌 while a song plays and they float up on every screen.
 - **Song of the round.** Vote for your favourite after each round; the winner gets a crown.
+- **Group selfies.** Snap a selfie after any round; it's saved privately with the game, shown as polaroids in the recap, and added to the recap card.
 - **Recap card.** A shareable image of the night's mixtape.
 - **Save to Spotify.** Turn the whole game into a playlist (needs a Spotify app; see below).
 - **Gentle chimes.** A soft sound when it's your turn to ask, when picking starts, and when 10 seconds are left.
@@ -85,6 +86,7 @@ The project uses Supabase's free tier for live rooms.
 | Security | Row-level security means you can only read or change games you joined. Players can only join through the `create_room` and `join_room` functions. |
 | Conflicts | Every save checks a version number, so two people tapping at once can't overwrite each other. |
 | Live updates | Supabase Realtime, plus a server clock sync so progress bars match. |
+| Selfies | Private Storage bucket `selfies`. Files live in a folder named after the room, and only that room's players can upload, view (short-lived signed links) or delete them. Photos are shrunk to 1600px JPEG before upload. |
 
 **Database changes** live in [`supabase/migrations/`](supabase/migrations). The Supabase GitHub integration applies new migrations when they reach the production branch. To set up a brand-new project in one go, paste [`supabase/schema.sql`](supabase/schema.sql) into **SQL Editor → New query** and press **Run**.
 
@@ -141,6 +143,7 @@ Add more shadcn components with `npx shadcn@latest add <component>`.
 - [x] Database live on Supabase with security rules
 - [x] Guess who picked it, pick timer, reactions, song of the round, QR join, chimes
 - [x] Recap card and Save to Spotify
+- [x] Group selfies saved with each game
 - [ ] Host the app (Vercel) and play a first real game
 - [ ] Game history: browse past games and their mixtapes
 - [ ] Spotify: full-length playback on the host's device

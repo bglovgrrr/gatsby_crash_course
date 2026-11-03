@@ -51,6 +51,15 @@ export type Round = {
   revealed?: string[]
   /** Song of the round: votes[voterId] = song owner they voted for. */
   votes?: Record<string, string>
+  /** Group selfie taken after this round. */
+  photo?: Photo
+}
+
+export type Photo = {
+  /** Storage path (online) or a local object URL (demo). */
+  path: string
+  by: string
+  takenAt: number
 }
 
 export type Settings = {
@@ -111,3 +120,6 @@ export type Action =
   | { type: 'reveal'; owner: string }
   /** Vote for the song of the round. */
   | { type: 'vote'; owner: string }
+  /** Attach a group selfie to a round (replaces any earlier one). */
+  | { type: 'photo'; roundId: string; path: string }
+  | { type: 'removePhoto'; roundId: string }

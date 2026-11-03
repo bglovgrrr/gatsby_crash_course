@@ -155,11 +155,13 @@
   html {
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
+    /* never scroll sideways (tilted polaroids, floating reactions) */
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     min-height: 100dvh;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
   h1, h2, h3 {
     @apply font-display;

@@ -2,7 +2,28 @@ import { playerById, scores, voteResults } from '@/game/engine'
 import type { GameState } from '@/game/types'
 
 /** Draws a 1080×1350 image of the night's mixtape (good for Instagram / Messages). */
-export async function drawRecapCard(s: GameState): Promise<Blob> {
+export async function drawRecapCard(s: GameState, photoUrl?: string | null): Promise<Blob> {
+  if (photoUrl) {
+    try {
+      return await drawCard(s, await loadImage(photoUrl))
+    } catch {
+      /* photo couldn't be drawn (e.g. blocked by the browser); make the card without it */
+    }
+  }
+  return drawCard(s, null)
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Could not load photo'))
+    img.src = url
+  })
+}
+
+async function drawCard(s: GameState, photo: HTMLImageElement | null): Promise<Blob> {
   const W = 1080
   const H = 1350
   const PAD = 84
@@ -53,11 +74,14 @@ export async function drawRecapCard(s: GameState): Promise<Blob> {
   c.fillStyle = MUTED
   const date = new Date(s.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
   const meta = `${date} · ${s.players.length} friends`
-  c.fillText(meta, W - PAD - c.measureText(meta).width, PAD + 28)
+  if (photo) c.fillText(meta, PAD, PAD + 230)
+  else c.fillText(meta, W - PAD - c.measureText(meta).width, PAD + 28)
 
   c.fillStyle = INK
   c.font = serif(92, true, 500)
   c.fillText('Our mixtape', PAD, PAD + 170)
+
+  if (photo) drawPolaroid(c, photo, W - PAD - 150, PAD + 175, 330, 6)
 
   // Rounds
   const rounds = s.rounds.filter((r) => r.order.length)
@@ -65,7 +89,7 @@ export async function drawRecapCard(s: GameState): Promise<Blob> {
   const guessing = s.rounds.some((r) => r.guessMode)
   const footerH = guessing ? 120 : 70
   const maxY = H - PAD - footerH
-  let y = PAD + 270
+  let y = PAD + (photo ? 420 : 270)
   let shownRounds = 0
 
   const ellipsize = (text: string, max: number) => {
@@ -207,5 +231,28 @@ function drawCrown(c: CanvasRenderingContext2D, x: number, y: number, size: numb
   c.lineJoin = 'round'
   c.fill()
   c.stroke()
+  c.restore()
+}
+
+/** A white-bordered photo, centred at (cx, cy), tilted by `deg`. */
+function drawPolaroid(c: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, width: number, deg: number) {
+  const border = width * 0.06
+  const photoW = width - border * 2
+  const photoH = photoW * 0.75
+  const height = photoH + border * 2 + border * 1.6
+  c.save()
+  c.translate(cx, cy)
+  c.rotate((deg * Math.PI) / 180)
+  c.shadowColor = 'rgba(30,20,60,0.28)'
+  c.shadowBlur = 30
+  c.shadowOffsetY = 12
+  c.fillStyle = '#ffffff'
+  c.fillRect(-width / 2, -height / 2, width, height)
+  c.shadowColor = 'transparent'
+  // cover-crop the photo into the frame
+  const scale = Math.max(photoW / img.width, photoH / img.height)
+  const sw = photoW / scale
+  const sh = photoH / scale
+  c.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, -width / 2 + border, -height / 2 + border, photoW, photoH)
   c.restore()
 }

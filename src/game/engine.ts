@@ -321,6 +321,17 @@ export function reduce(s: GameState, a: Action, actorId: string, now = clock.now
       return withRound(s, reveal(round!, a.owner))
     }
 
+    case 'photo':
+    case 'removePhoto': {
+      if (s.phase === 'lobby') fail('Take a selfie after a round.')
+      const idx = s.rounds.findIndex((r) => r.id === a.roundId)
+      if (idx < 0) fail('That round no longer exists.')
+      const target = s.rounds[idx]
+      if (a.type === 'photo' && !a.path) fail('No photo to save.')
+      const updated: Round = a.type === 'photo' ? { ...target, photo: { path: a.path, by: actorId, takenAt: now } } : { ...target, photo: undefined }
+      return { ...s, rounds: s.rounds.map((r, i) => (i === idx ? updated : r)) }
+    }
+
     case 'vote': {
       if (s.phase !== 'between' || !round) fail('Voting is closed.')
       if (!round!.order.includes(a.owner)) fail('That song isn’t in this round.')

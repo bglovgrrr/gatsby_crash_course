@@ -53,6 +53,11 @@ export class LocalGameClient implements GameClient {
 
   react = (emoji: string) => this.emitReaction(emoji, this.meId)
 
+  // Demo photos stay on this device only.
+  uploadPhoto = async (image: Blob) => URL.createObjectURL(image)
+  photoUrl = async (path: string) => path
+  deletePhoto = async (path: string) => URL.revokeObjectURL(path)
+
   onReaction = (listener: (r: Reaction) => void) => {
     this.reactionListeners.add(listener)
     return () => this.reactionListeners.delete(listener)

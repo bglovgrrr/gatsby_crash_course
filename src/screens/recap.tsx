@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { CrownedName, PlayerAvatar, TrackRow } from '@/components/game-ui'
 import { Scoreboard } from '@/components/scoreboard'
+import { Polaroid, SelfieCard } from '@/components/selfie'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -15,13 +16,15 @@ import { cn } from '@/lib/utils'
 
 /** Shows the recap image with Share (where supported) or "press and hold to save". */
 function RecapCardDialog({ onClose }: { onClose: () => void }) {
-  const { state } = useGame()
+  const { state, client } = useGame()
   const [file, setFile] = useState<File | null>(null)
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let objectUrl: string | null = null
-    drawRecapCard(state)
+    const latest = [...state.rounds].reverse().find((r) => r.photo)?.photo
+    ;(latest ? client.photoUrl(latest.path).catch(() => null) : Promise.resolve(null))
+      .then((photoUrl) => drawRecapCard(state, photoUrl))
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob)
         setFile(new File([blob], 'side-b-mixtape.png', { type: 'image/png' }))
@@ -31,7 +34,7 @@ function RecapCardDialog({ onClose }: { onClose: () => void }) {
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [state])
+  }, [state, client])
 
   const canShare = !!file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })
   const share = async () => {
@@ -133,6 +136,8 @@ export function RecapScreen({ onExit }: { onExit: () => void }) {
   const [showCard, setShowCard] = useState(false)
   const rounds = state.rounds.filter((r) => r.order.length > 0)
   const songs = rounds.reduce((n, r) => n + r.order.length, 0)
+  const photos = state.rounds.filter((r) => r.photo)
+  const lastRound = rounds[rounds.length - 1]
 
   const copyList = async () => {
     const text = rounds
@@ -178,6 +183,23 @@ export function RecapScreen({ onExit }: { onExit: () => void }) {
       <Card className="p-3 empty:hidden">
         <Scoreboard />
       </Card>
+
+      {photos.length > 0 ? (
+        <section className="grid gap-3">
+          <h3 className="px-1 text-lg font-medium font-soft">Photos</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 px-1 py-2 sm:grid-cols-3">
+            {photos.map((r, i) => (
+              <Polaroid key={r.id} photo={r.photo!} caption={r.prompt} tilt={i % 2 ? 2.5 : -2.5} />
+            ))}
+          </div>
+        </section>
+      ) : (
+        lastRound && (
+          <Card className="p-4">
+            <SelfieCard round={lastRound} />
+          </Card>
+        )
+      )}
 
       <AnimatePresence>{showCard && <RecapCardDialog onClose={() => setShowCard(false)} />}</AnimatePresence>
 
