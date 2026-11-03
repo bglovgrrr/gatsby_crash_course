@@ -1,90 +1,118 @@
-# Side B 🎵
+# Side B
 
-**Every song has a story.** Side B is a music game for 2–8 friends sitting together:
+**Every song has a story.**
 
-1. **Ask.** One person asks a question, either their own or one from a theme: *"What song reminds you of your dad?"*
-2. **Pick.** Everyone secretly picks a song on their phone.
-3. **Listen & talk.** The songs play one by one on the speaker. When each one plays, the person who picked it shares the story.
-4. The next person asks, and you go round again. At the end you get a recap of every round's mixtape.
+Side B is a relaxed music game for 2–8 friends in the same room. Someone asks a question, everyone secretly answers with a song, and then you listen to each one together and talk about why it was picked.
 
-## Run it
+> **Status:** in development. Demo mode and online rooms work. The database is live on Supabase; the app isn't hosted yet.
+
+## How a game works
+
+1. **Ask.** The asker writes a question or picks one from a theme, such as *"What song reminds you of your dad?"*
+2. **Pick.** Everyone searches for a song on their own phone and locks it in. Picks stay secret, and you can add a short note about why.
+3. **Listen & talk.** Songs are revealed one at a time and play on the host's phone, hooked up to a speaker. Anyone can play, pause, or skip. After each song, the person who picked it tells the story.
+4. **Next round.** The next person asks. When you're done, the recap shows every round's mixtape.
+
+## Features
+
+- **No accounts.** Start a game, share the 4-letter code or invite link, and friends join with just a name.
+- **Live sync.** Every phone stays in step: questions, picks, play/pause, and the progress bar.
+- **Rejoin anytime.** Refresh or lock your phone and you land back in the same game.
+- **Question themes.** Throwback, Family, Love & heartbreak, Hype, Deep cuts, Places, and Wildcard, plus your own questions and "Surprise me".
+- **Song search with previews.** Uses iTunes search with 30-second clips. No API key needed.
+- **Demo mode.** Play a full game on one device with three bot friends.
+- **Made for phones and desktops.** Light, dark, or match-device theme. You can add it to your home screen like an app.
+
+## Getting started
+
+Requires Node.js 20.19+ or 22.12+.
 
 ```bash
 npm install
 npm run dev            # http://localhost:5173
 npm run dev -- --host  # also open it on your phone (same Wi-Fi)
-npm run build          # production build (installable PWA) in dist/
+npm run build          # production build in dist/
 npm run lint
 ```
 
-`npm run build:preview` builds a single self-contained HTML file in `dist-preview/`. It runs in demo mode and is used to preview the app inside the Claude app. `node scripts/claude-preview.mjs` turns it into a page ready to publish as an artifact.
+Online play reads the Supabase project from `.env`. The publishable key in that file is meant to be public; the database's row-level security rules control access.
 
-## Online play (Supabase)
+## Putting it online
 
-Online rooms use the free Supabase project set in `.env`. One-time setup in the Supabase dashboard:
+Friends need a web address to join. Any static host works. The easiest free option is **Vercel**:
 
-1. The database for this project is already set up (see `supabase/migrations/`). For a brand-new Supabase project, paste all of [`supabase/schema.sql`](supabase/schema.sql) into **SQL Editor → New query** and press **Run**.
-2. **Authentication → Sign In / Providers**: turn on **Allow anonymous sign-ins**.
+1. Sign in at [vercel.com](https://vercel.com) with GitHub.
+2. Choose **Add New → Project** and import this repository.
+3. Keep the detected settings (Vite, `npm run build`, output `dist`) and deploy.
 
-How it works:
-- Nobody makes an account. Each device signs in anonymously and gets a player id that survives refreshes.
-- One row per game in `rooms`; the whole game state is JSON in `state`. Every phone runs the same rules (`engine.ts`) and saves with a version check, so two people tapping at once can't overwrite each other.
-- Row-level security: you can only read or change games you joined (by creating one or entering its code). Membership can only be added by the `create_room` / `join_room` functions.
-- Live updates use Supabase Realtime. Phones also sync their clocks with the server so the progress bar matches.
-- The **host's device plays the music**; everyone else's phone is a remote control.
-- Invite links look like `https://your-site/?join=ABCD`.
+Vercel deploys the repository's default branch, so merge your work there first, or pick a different production branch in the project settings.
 
-### Claude Code + Supabase
+## Backend (Supabase)
 
-`.mcp.json` connects Claude Code to this Supabase project (docs, database, logs, debugging). The first time you open the project in Claude Code on your computer, run `/mcp`, choose **supabase** and **Authenticate**. Supabase's agent skills are in `.claude/skills/`.
+The project uses Supabase's free tier for live rooms.
 
-Free-tier note: Supabase pauses a free project after a week without use. Open the dashboard and press **Restore** to wake it.
+| What | How |
+| --- | --- |
+| Sign-in | Anonymous. Each device gets a player id with no account needed. Turn on **Authentication → Sign In / Providers → Allow anonymous sign-ins**. |
+| Games | One row per game in `rooms`, with the whole game state stored as JSON. |
+| Security | Row-level security means you can only read or change games you joined. Players can only join through the `create_room` and `join_room` functions. |
+| Conflicts | Every save checks a version number, so two people tapping at once can't overwrite each other. |
+| Live updates | Supabase Realtime, plus a server clock sync so progress bars match. |
 
-## Stack
+**Database changes** live in [`supabase/migrations/`](supabase/migrations). The Supabase GitHub integration applies new migrations when they reach the production branch. To set up a brand-new project in one go, paste [`supabase/schema.sql`](supabase/schema.sql) into **SQL Editor → New query** and press **Run**.
 
-| Layer | Choice | Why |
-| --- | --- | --- |
-| App | Vite + React 19 + TypeScript | Fast, simple, and AI tools know it well |
-| UI | Tailwind CSS v4 + shadcn/ui components, `motion` for animation, `lucide-react` icons | Modern look; components are plain files you own (`src/components/ui`) |
-| Brand | Pastel palette, Fraunces (display) + Figtree (body), bundled locally | Calm and friendly. All colours are tokens in `src/index.css` |
-| Install | PWA (`vite-plugin-pwa`) | Add to Home Screen on iPhone and Android |
-| Song search | iTunes Search API | Free, no key, 30-second previews |
-| Backend | Supabase free tier | Real-time sync, Postgres for history, anonymous sign-in (no accounts), row-level security |
-| Spotify (later) | Spotify Web API | Full-length playback on the host device + save a game as a playlist |
+**Free tier:** Supabase pauses a free project after a week without use. Open the dashboard and press **Restore** to wake it.
 
-To add more shadcn components: `npx shadcn@latest add dialog` (config is in `components.json`).
-
-## How the code is organised
+## Project structure
 
 ```
 src/
   game/
-    types.ts         Game data: players, rounds, picks, playback
-    engine.ts        ALL the game rules: reduce(state, action, playerId) -> new state
-    prompts.ts       Question themes
-    client.ts        GameClient interface: how the UI talks to a game
-    local-client.ts  Demo mode: runs on one device with bot friends
-    online-client.ts Online mode: Supabase rooms + realtime
-  music/
-    search.ts        iTunes search (+ offline fallback)
-    demo-catalog.ts  Built-in songs for offline / sandboxed previews
-  screens/           One file per game phase: lobby, asking, picking, listening, between, recap
-  components/        game-ui.tsx (avatars, album art, prompt card), audio-engine.tsx, ui/ (shadcn)
-  hooks/use-game.ts  useGame() hook used by every screen
+    engine.ts          All game rules in one pure function: reduce(state, action, player)
+    types.ts           Players, rounds, picks, playback
+    prompts.ts         Question themes
+    client.ts          How screens talk to a game (demo or online)
+    local-client.ts    Demo mode with bot players
+    online-client.ts   Online mode: Supabase rooms, realtime, versioned saves
+  screens/             One screen per phase: lobby, asking, picking, listening, between, recap
+  components/          Shared game UI, audio player, and shadcn/ui components (ui/)
+  music/               Song search and the offline song list
+  hooks/               useGame, useTheme
+  lib/                 Supabase client, clock sync, helpers
+supabase/
+  migrations/          Database changes, in order
+  schema.sql           Full setup for a new project
 ```
 
-The rules live in one pure function (`engine.ts`), and the same rules run in demo mode now and online mode later. To change how the game works, start there.
+To change how the game plays, start in `src/game/engine.ts`. Demo and online modes use the same rules.
+
+## Built with
+
+| Layer | Choice |
+| --- | --- |
+| App | Vite, React 19, TypeScript |
+| UI | Tailwind CSS v4, shadcn/ui, Motion, Lucide icons |
+| Brand | Pastel palette with Fraunces and Figtree fonts (bundled). Colours are tokens in `src/index.css` |
+| Backend | Supabase (Postgres, anonymous auth, Realtime) |
+| Music | iTunes Search API. Spotify is planned |
+| Install | PWA via `vite-plugin-pwa` |
+
+Add more shadcn components with `npx shadcn@latest add <component>`.
+
+## Working on it with Claude Code
+
+- `.mcp.json` connects Claude Code to the Supabase project. On first use, run `/mcp`, choose **supabase**, then **Authenticate**.
+- Supabase's agent skills are in `.claude/skills/`.
+- `npm run build:preview` makes a single-file demo build in `dist-preview/`, for previewing inside the Claude app (`node scripts/claude-preview.mjs` prepares it for publishing).
 
 ## Roadmap
 
-- [x] Game loop: lobby → ask → secret picks → listen & talk → next asker → recap
-- [x] Question themes, custom questions, "Surprise me"
-- [x] Song search with previews, optional "why I picked it" note
-- [x] Shared play / pause / skip / seek; songs revealed one at a time
-- [x] Phone + desktop layouts, installable
-- [x] Light / dark / match-device theme switch
-- [x] Online rooms with Supabase: create, join with a code or invite link, live sync, rejoin after refresh
-- [ ] Host it online (Vercel / Netlify, free) so friends can open it
-- [ ] Game history screen (games are already saved in the database)
-- [ ] Spotify: host logs in, songs play in full, "Save to Spotify" playlist at the end
-- [ ] Reactions (❤️ 😂 😭) while a song plays
+- [x] Full game loop with themes, secret picks, and a recap
+- [x] Shared playback controls; songs revealed one at a time
+- [x] Pastel design with light and dark themes
+- [x] Online rooms: codes, invite links, live sync, rejoin after refresh
+- [x] Database live on Supabase with security rules
+- [ ] Host the app (Vercel) and play a first real game
+- [ ] Game history: browse past games and their mixtapes
+- [ ] Spotify: full-length playback and "Save as playlist"
+- [ ] Reactions while a song plays
